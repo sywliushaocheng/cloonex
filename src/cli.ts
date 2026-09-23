@@ -33,7 +33,7 @@ const HELP = `Cloonex - 本地开发思维与项目知识库
   preference-confirm <ID>       确认候选偏好
   preference-revoke <ID>        撤销偏好，使其不再提供给新任务
   mcp                          以 stdio 方式启动 MCP 服务（供 Codex 调用）
-  mcp-config                    输出 Codex 接入所需的 TOML 配置片段
+  mcp-config [--direct]         输出 Codex 接入配置（--direct 用于本地安装）
   install-skill [--target <目录>] 安装 Cloonex 开发流程技能
   help                          显示本帮助
 
@@ -272,20 +272,37 @@ async function main(): Promise<void> {
 
       case 'mcp-config': {
         const paths = resolvePaths();
-        out('# 将以下内容加入 Codex 配置 config.toml（通常是 ~/.codex/config.toml）');
+        const dataDir = paths.dataDir.replace(/\\/g, '/');
+        // Two forms are needed because the package can be installed two ways:
+        // from the npm registry (npx resolves it) or from a local tarball
+        // (resolve the real file, because a global install is not on npm).
+        const direct = flags.has('direct');
+        const entry = path.resolve(import.meta.dirname, 'cli.js');
+        const cliPath = fs.existsSync(entry) ? entry.replace(/\\/g, '/') : '';
+
+        out('# 将以下内容加入 Codex 配置（通常是 ~/.codex/config.toml）');
         out('');
         out('[mcp_servers.cloonex]');
-        out("command = 'npx'");
-        out("args = ['-y', 'cloonex', 'mcp']");
+        if (direct) {
+          out('command = ' + JSON.stringify(process.execPath));
+          out('args = [' + JSON.stringify(cliPath) + ", 'mcp']");
+        } else {
+          out("command = 'npx'");
+          out("args = ['-y', 'cloonex', 'mcp']");
+        }
         out('');
         out('[mcp_servers.cloonex.env]');
-        out("CLOONEX_DATA_DIR = '" + paths.dataDir.replace(/\\/g, '/') + "'");
+        out("CLOONEX_DATA_DIR = '" + dataDir + "'");
         out('');
         out('# 说明：');
-        out('# 1. command 使用 npx，无需填写 Node 或 Cloonex 的绝对路径。');
-        out('# 2. CLOONEX_DATA_DIR 是个人数据目录，建议放在 D 盘等非系统盘，与程序安装位置无关。');
+        if (direct) {
+          out('# 1. 当前为本地安装模式，已写入 Node 与本程序的绝对路径（最可靠）。');
+        } else {
+          out('# 1. command 使用 npx，自动从 npm 获取 Cloonex。');
+          out('#    若使用本地 tgz 安装，请改用：cloonex mcp-config --direct');
+        }
+        out('# 2. CLOONEX_DATA_DIR 是个人数据目录，建议放在非系统盘，与程序安装位置无关。');
         out('# 3. 修改配置后需要在 Codex 中审阅并信任该 MCP 服务。');
-        out('# 4. 若已全局安装，也可以把 command/args 换成本地路径以加快启动。');
         return;
       }
 
