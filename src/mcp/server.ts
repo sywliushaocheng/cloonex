@@ -146,6 +146,8 @@ server.registerTool(
         outOfScope: args.outOfScope,
         constraints: args.constraints,
         doneCriteria: args.doneCriteria,
+        stack: args.stack,
+        scene: args.scene,
       });
       return json({
         task,
@@ -205,6 +207,8 @@ server.registerTool(
         outcome: args.outcome,
         verification: args.verification,
         featureId,
+        stack: args.stack,
+        scene: args.scene,
       });
       return json({ task: updated });
     } catch (error) {

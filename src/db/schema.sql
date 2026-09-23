@@ -162,6 +162,8 @@ CREATE TABLE IF NOT EXISTS task (
   status         TEXT NOT NULL,
   outcome        TEXT,
   verification   TEXT,
+  stack          TEXT,
+  scene          TEXT,
   created_at     TEXT NOT NULL,
   updated_at     TEXT NOT NULL,
   closed_at      TEXT

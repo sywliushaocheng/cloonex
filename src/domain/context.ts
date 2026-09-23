@@ -4,7 +4,7 @@ import type { Db } from '../db/database.js';
 import { fingerprintFile, resolveInsideProject } from './code.js';
 import { listDecisions, getFeature, listFeatures } from './feature.js';
 import { evidenceFor } from './evidence.js';
-import { queryPreferences } from './preference.js';
+import { countUnresolvedScopedPreferences, queryPreferences } from './preference.js';
 import { listConventions, getProject } from './project.js';
 import type { TaskView } from './task.js';
 
@@ -37,6 +37,8 @@ export interface TaskContext {
     outOfScope: string | null;
     constraints: string | null;
     doneCriteria: string | null;
+    stack: string | null;
+    scene: string | null;
   };
   policyRationale: string;
   sections: ContextSection[];
@@ -72,12 +74,39 @@ export function buildTaskContext(db: Db, task: TaskView, budget: ContextBudget =
   sections.push(conventionSection);
 
   // 2. Applicable preferences, with the scope visible so conflicts are debatable.
+  //    Scope is evaluated strictly: a scene rule only applies inside that scene,
+  //    and a stack rule only on that stack. Passing task.stack/task.scene here is
+  //    what keeps UI rules from leaking into unrelated pages.
   const preferenceSection: ContextSection = { title: '适用偏好', items: [], omitted: 0 };
-  for (const preference of queryPreferences(db, { projectId: task.projectId })) {
+  for (const preference of queryPreferences(db, {
+    projectId: task.projectId,
+    stack: task.stack,
+    scene: task.scene,
+  })) {
     if (preference.status === 'candidate') continue; // unconfirmed rules are not constraints
-    push(preferenceSection, `[${preference.scope}] ${preference.title}：${preference.content}`, meter);
+    const target = preference.scene ?? preference.stack ?? '';
+    const scopeLabel = target ? `${preference.scope}:${target}` : preference.scope;
+    push(preferenceSection, `[${scopeLabel}] ${preference.title}：${preference.content}`, meter);
   }
   sections.push(preferenceSection);
+
+  // Rules that exist but cannot be judged without a stack/scene are reported
+  // rather than silently dropped.
+  const unresolved = countUnresolvedScopedPreferences(db, {
+    projectId: task.projectId,
+    stack: task.stack,
+    scene: task.scene,
+  });
+  if (unresolved.scene > 0) {
+    warnings.push(
+      `有 ${unresolved.scene} 条按场景限定的偏好因未指定场景而未加载。如本次属于该场景，请用 update_task 设置 scene。`,
+    );
+  }
+  if (unresolved.stack > 0) {
+    warnings.push(
+      `有 ${unresolved.stack} 条按技术栈限定的偏好因未指定技术栈而未加载。如适用，请用 update_task 设置 stack。`,
+    );
+  }
 
   // 3. The feature under work, with stale flags surfaced rather than hidden.
   const featureSection: ContextSection = { title: '关联功能', items: [], omitted: 0 };
@@ -124,6 +153,8 @@ export function buildTaskContext(db: Db, task: TaskView, budget: ContextBudget =
       outOfScope: task.outOfScope,
       constraints: task.constraints,
       doneCriteria: task.doneCriteria,
+      stack: task.stack,
+      scene: task.scene,
     },
     policyRationale: task.policy.rationale,
     sections,

@@ -16,6 +16,8 @@ export interface TaskView {
   outOfScope: string | null;
   constraints: string | null;
   doneCriteria: string | null;
+  stack: string | null;
+  scene: string | null;
   status: TaskStatus;
   outcome: string | null;
   verification: string | null;
@@ -39,6 +41,8 @@ function toTaskView(row: Record<string, unknown>): TaskView {
     outOfScope: (row.out_of_scope as string | null) ?? null,
     constraints: (row.constraints as string | null) ?? null,
     doneCriteria: (row.done_criteria as string | null) ?? null,
+    stack: (row.stack as string | null) ?? null,
+    scene: (row.scene as string | null) ?? null,
     status: row.status as TaskStatus,
     outcome: (row.outcome as string | null) ?? null,
     verification: (row.verification as string | null) ?? null,
@@ -59,6 +63,8 @@ export interface BeginTaskInput {
   outOfScope?: string | null;
   constraints?: string | null;
   doneCriteria?: string | null;
+  stack?: string | null;
+  scene?: string | null;
 }
 
 export function beginTask(db: Db, input: BeginTaskInput): TaskView {
@@ -68,8 +74,8 @@ export function beginTask(db: Db, input: BeginTaskInput): TaskView {
   db.run(
     `INSERT INTO task
        (id, project_id, feature_id, title, task_type, learning_state, intent, in_scope,
-        out_of_scope, constraints, done_criteria, status, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, ?)`,
+        out_of_scope, constraints, done_criteria, stack, scene, status, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, ?)`,
     [
       id,
       input.projectId,
@@ -82,6 +88,8 @@ export function beginTask(db: Db, input: BeginTaskInput): TaskView {
       input.outOfScope ?? null,
       input.constraints ?? null,
       input.doneCriteria ?? null,
+      input.stack ?? null,
+      input.scene ?? null,
       timestamp,
       timestamp,
     ],
@@ -121,6 +129,8 @@ export interface UpdateTaskInput {
   verification?: string;
   taskType?: string;
   featureId?: string | null;
+  stack?: string | null;
+  scene?: string | null;
 }
 
 export function updateTask(db: Db, taskId: string, input: UpdateTaskInput): TaskView {
@@ -134,7 +144,7 @@ export function updateTask(db: Db, taskId: string, input: UpdateTaskInput): Task
   db.run(
     `UPDATE task SET
        task_type = ?, learning_state = ?, feature_id = ?, intent = ?, in_scope = ?, out_of_scope = ?,
-       constraints = ?, done_criteria = ?, status = ?, outcome = ?, verification = ?,
+       constraints = ?, done_criteria = ?, stack = ?, scene = ?, status = ?, outcome = ?, verification = ?,
        updated_at = ?, closed_at = ?
      WHERE id = ?`,
     [
@@ -146,6 +156,8 @@ export function updateTask(db: Db, taskId: string, input: UpdateTaskInput): Task
       input.outOfScope ?? current.outOfScope,
       input.constraints ?? current.constraints,
       input.doneCriteria ?? current.doneCriteria,
+      input.stack !== undefined ? input.stack : current.stack,
+      input.scene !== undefined ? input.scene : current.scene,
       status,
       input.outcome ?? current.outcome,
       input.verification ?? current.verification,

@@ -79,11 +79,33 @@ export function openDb(options: OpenOptions = {}): Db {
   fs.mkdirSync(paths.dataDir, { recursive: true });
   const db = new Db(paths.dbFile);
   db.exec(SCHEMA_SQL);
+  migrate(db);
   db.run(
-    `INSERT INTO meta (key, value) VALUES ('schema_version', '1')
+    `INSERT INTO meta (key, value) VALUES ('schema_version', '2')
      ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
   );
   return db;
+}
+
+/**
+ * Additive migrations for databases created by an earlier version.
+ *
+ * CREATE TABLE IF NOT EXISTS never alters an existing table, so new columns
+ * must be added explicitly. Only nullable columns are added here, and user data
+ * is never rewritten: an existing database must keep working after upgrade.
+ */
+function migrate(db: Db): void {
+  const additions: Array<{ table: string; column: string; definition: string }> = [
+    { table: 'task', column: 'stack', definition: 'TEXT' },
+    { table: 'task', column: 'scene', definition: 'TEXT' },
+  ];
+
+  for (const { table, column, definition } of additions) {
+    const columns = db.all(`PRAGMA table_info(${table})`).map((row) => String(row.name));
+    if (!columns.includes(column)) {
+      db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+    }
+  }
 }
 
 export function dataDirSize(dataDir: string): { bytes: number; files: number } {

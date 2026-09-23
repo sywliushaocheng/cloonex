@@ -147,9 +147,13 @@ export function queryPreferences(db: Db, query: PreferenceQuery = {}): Preferenc
   const clauses: string[] = [`status IN (${placeholders})`];
   const params: Array<string | number> = [...statuses];
 
+  // Scope semantics (product doc §4.1, §7.3): a rule only applies inside the
+  // scope it was recorded for. Each clause therefore pins BOTH the scope value
+  // and its target, so a project-wide rule cannot leak into a specific scene
+  // and a scene rule cannot leak into a different scene.
   const scopeClauses: string[] = ["scope = 'global'"];
   if (query.projectId) {
-    scopeClauses.push('project_id = ?');
+    scopeClauses.push("(scope = 'project' AND project_id = ?)");
     params.push(query.projectId);
   }
   if (query.stack) {
@@ -172,6 +176,28 @@ export function queryPreferences(db: Db, query: PreferenceQuery = {}): Preferenc
     [...params, limit],
   );
   return rows.map((row) => toPreference(db, row));
+}
+
+/**
+ * Counts active rules whose scope cannot be evaluated for this task (no scene
+ * or stack given). Used to warn instead of silently omitting them.
+ */
+export function countUnresolvedScopedPreferences(
+  db: Db,
+  query: { projectId?: string | null; stack?: string | null; scene?: string | null },
+): { scene: number; stack: number } {
+  const count = (scope: 'scene' | 'stack', value?: string | null): number => {
+    if (value) return 0;
+    const row = db.get(
+      `SELECT COUNT(*) AS c FROM preference
+        WHERE status = 'confirmed' AND scope = ?
+          AND (project_id IS NULL OR project_id = ?)
+          AND (expires_at IS NULL OR expires_at > ?)`,
+      [scope, query.projectId ?? null, nowIso()],
+    );
+    return Number(row?.c ?? 0);
+  };
+  return { scene: count('scene', query.scene), stack: count('stack', query.stack) };
 }
 
 export function listPreferences(db: Db, includeInactive = false): PreferenceView[] {

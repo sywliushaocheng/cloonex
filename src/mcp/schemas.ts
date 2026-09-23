@@ -32,6 +32,11 @@ export const beginTaskSchema = {
   outOfScope: z.string().optional().describe('必须保持不变的行为'),
   constraints: z.string().optional().describe('约束，如复用组件、禁止新增依赖'),
   doneCriteria: z.string().optional().describe('出现什么结果才算完成'),
+  stack: z.string().optional().describe('技术栈标识，如 vue3 / react；用于加载按栈限定的偏好'),
+  scene: z
+    .string()
+    .optional()
+    .describe('业务场景标识，如 admin-page / marketing-page；用于加载按场景限定的界面偏好'),
 };
 
 export const getContextSchema = {
@@ -157,4 +162,6 @@ export const taskUpdateSchema = {
   outcome: z.string().optional(),
   verification: z.string().optional(),
   featureSlug: z.string().optional(),
+  stack: z.string().optional().describe('调整技术栈；影响按栈限定的偏好是否加载'),
+  scene: z.string().optional().describe('调整业务场景；影响按场景限定的界面偏好是否加载'),
 };
