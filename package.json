@@ -1,16 +1,30 @@
 {
   "name": "cloonex",
   "version": "0.1.0",
-  "description": "Cloonex - local record of development intent and project knowledge, exposed to Codex via MCP",
+  "description": "在借助 AI 开发的同时，本地保存开发意图、项目约定、关键决定与功能档案，使项目知识独立于具体模型。",
   "type": "module",
-  "license": "UNLICENSED",
-  "private": true,
+  "license": "MIT",
   "bin": {
-    "cloonex": "./dist/src/cli.js"
+    "cloonex": "dist/src/cli.js"
   },
+  "files": [
+    "dist/src",
+    "skills",
+    "docs/验收状态.md",
+    "README.md",
+    "LICENSE"
+  ],
   "engines": {
     "node": ">=20.11"
   },
+  "keywords": [
+    "codex",
+    "mcp",
+    "ai",
+    "development-memory",
+    "project-knowledge",
+    "context"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
@@ -18,7 +32,9 @@
     "mcp": "node dist/src/mcp/server.js",
     "cli": "node dist/src/cli.js",
     "sync:schema": "node scripts/sync-schema.mjs",
-    "verify": "npm run typecheck && npm test"
+    "verify": "npm run typecheck && npm test",
+    "prepare": "npm run build",
+    "prepublishOnly": "npm run verify"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",

@@ -32,6 +32,7 @@ const HELP = `Cloonex - 本地开发思维与项目知识库
   preferences [--all]           列出偏好
   preference-confirm <ID>       确认候选偏好
   preference-revoke <ID>        撤销偏好，使其不再提供给新任务
+  mcp                          以 stdio 方式启动 MCP 服务（供 Codex 调用）
   mcp-config                    输出 Codex 接入所需的 TOML 配置片段
   install-skill [--target <目录>] 安装 Cloonex 开发流程技能
   help                          显示本帮助
@@ -70,10 +71,16 @@ function requireTaskId(positional: string[], usage: string): string {
   return id;
 }
 
-function main(): void {
+async function main(): Promise<void> {
   const [command, ...rest] = process.argv.slice(2);
   const { positional, flags } = parseFlags(rest);
 
+  if (command === 'mcp') {
+    // Hand over to the MCP server. Must stay silent on stdout: that channel
+    // carries the JSON-RPC stream. The server module connects on import.
+    await import('./mcp/server.js');
+    return;
+  }
   if (!command || command === 'help' || command === '--help' || command === '-h') {
     out(HELP.trimEnd());
     return;
@@ -265,21 +272,20 @@ function main(): void {
 
       case 'mcp-config': {
         const paths = resolvePaths();
-        const serverEntry = path.resolve(import.meta.dirname, 'mcp', 'server.js');
-        out('# 将以下内容加入 Codex 配置 config.toml');
+        out('# 将以下内容加入 Codex 配置 config.toml（通常是 ~/.codex/config.toml）');
         out('');
         out('[mcp_servers.cloonex]');
-        out('type = "stdio"');
-        out('command = ' + JSON.stringify(process.execPath));
-        out('args = [' + JSON.stringify(serverEntry.replace(/\\/g, '/')) + ']');
+        out("command = 'npx'");
+        out("args = ['-y', 'cloonex', 'mcp']");
         out('');
         out('[mcp_servers.cloonex.env]');
-        out('CLOONEX_DATA_DIR = ' + JSON.stringify(paths.dataDir.replace(/\\/g, '/')));
+        out("CLOONEX_DATA_DIR = '" + paths.dataDir.replace(/\\/g, '/') + "'");
         out('');
         out('# 说明：');
-        out('# 1. CLOONEX_DATA_DIR 是个人数据目录，可改到 D 盘等位置，与程序安装位置无关。');
-        out('# 2. 修改配置后需要在 Codex 中审阅并信任该 MCP 服务。');
-        out('# 3. 首次使用前先运行：cloonex init --data-dir <数据目录>');
+        out('# 1. command 使用 npx，无需填写 Node 或 Cloonex 的绝对路径。');
+        out('# 2. CLOONEX_DATA_DIR 是个人数据目录，建议放在 D 盘等非系统盘，与程序安装位置无关。');
+        out('# 3. 修改配置后需要在 Codex 中审阅并信任该 MCP 服务。');
+        out('# 4. 若已全局安装，也可以把 command/args 换成本地路径以加快启动。');
         return;
       }
 
@@ -310,7 +316,7 @@ function main(): void {
 }
 
 try {
-  main();
+  await main();
 } catch (error) {
   process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
   process.exitCode = 1;

@@ -2,5 +2,7 @@ node_modules/
 dist/
 work/
 *.log
+*.tgz
 .cloonex/
+.idea/
 .DS_Store

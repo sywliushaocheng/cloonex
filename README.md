@@ -17,19 +17,17 @@
 ## 快速开始
 
 ```bash
-# 1. 安装依赖并构建
-npm install
-npm run build
+# 1. 初始化个人数据目录（建议放在 D 盘等非系统盘）
+npx cloonex init --data-dir D:\CloonexData
 
-# 2. 初始化个人数据目录（可以放在 D 盘等位置）
-node dist/src/cli.js init --data-dir D:\CloonexData
+# 2. 输出 Codex 接入配置，按提示加入 config.toml
+npx cloonex mcp-config
 
-# 3. 输出 Codex 接入配置，按提示加入 config.toml
-node dist/src/cli.js mcp-config
-
-# 4. 安装开发流程技能
-node dist/src/cli.js install-skill
+# 3. 安装开发流程技能
+npx cloonex install-skill
 ```
+
+只需要 Node.js ≥ 20.11，**不需要**编译工具链：SQLite 使用纯 WASM 版本。
 
 配置写入 Codex 后，需要在 Codex 中审阅并信任该 MCP 服务。之后在项目里说“开始一个新功能任务”即可走完整流程。
 
@@ -37,12 +35,14 @@ node dist/src/cli.js install-skill
 
 ```toml
 [mcp_servers.cloonex]
-command = 'C:\Program Files\nodejs\node.exe'
-args = ['D:/path/to/cloonex/dist/src/mcp/server.js']
+command = 'npx'
+args = ['-y', 'cloonex', 'mcp']
 
 [mcp_servers.cloonex.env]
 CLOONEX_DATA_DIR = 'D:/CloonexData'
 ```
+
+配置不含绝对路径，可直接复制到任何机器。
 
 `CLOONEX_DATA_DIR` 是**个人数据目录**，与程序安装位置完全独立。程序升级或重装不会清除数据。
 
@@ -83,17 +83,17 @@ begin_task → get_context → (开发) → record_decision / save_checkpoint �
 ## CLI
 
 ```bash
-node dist/src/cli.js info --detail          # 数据位置与记录数量
-node dist/src/cli.js projects               # 已注册项目
-node dist/src/cli.js project <路径>         # 项目约定与功能档案
-node dist/src/cli.js tasks <路径>           # 任务历史
-node dist/src/cli.js show <任务ID>          # 任务上下文
-node dist/src/cli.js export <任务ID>        # 导出交接 Markdown
-node dist/src/cli.js stale <路径>           # 检查记录与代码是否不一致
-node dist/src/cli.js preferences            # 偏好列表
-node dist/src/cli.js preference-revoke <ID> # 撤销偏好
-node dist/src/cli.js mcp-config             # 输出接入配置
-node dist/src/cli.js install-skill          # 安装开发流程技能
+npx cloonex info --detail          # 数据位置与记录数量
+npx cloonex projects               # 已注册项目
+npx cloonex project <路径>         # 项目约定与功能档案
+npx cloonex tasks <路径>           # 任务历史
+npx cloonex show <任务ID>          # 任务上下文
+npx cloonex export <任务ID>        # 导出交接 Markdown
+npx cloonex stale <路径>           # 检查记录与代码是否不一致
+npx cloonex preferences            # 偏好列表
+npx cloonex preference-revoke <ID> # 撤销偏好
+npx cloonex mcp-config             # 输出接入配置
+npx cloonex install-skill          # 安装开发流程技能
 ```
 
 ## 技术选型说明
@@ -104,9 +104,14 @@ node dist/src/cli.js install-skill          # 安装开发流程技能
   - 该构建的 SQLite 为 3.53，`journal_mode` 为 `delete`（不支持 WAL）。MCP 服务每个进程使用单一连接，写入已串行化。
 - **不收集数据**：无账号、无云端服务、无默认遥测。使用云端模型时，被选中的约定与代码材料会进入模型上下文——这与“数据保存在本地”是两件事，不混淆表述。
 
+## 分享给别人
+
+见 [docs/分享指南.md](docs/分享指南.md)。最简方式：发布到 npm 后，对方执行 `npx cloonex init`、`npx cloonex mcp-config`、`npx cloonex install-skill` 三步即可。
+
 ## 开发
 
 ```bash
+npm install         # prepare 脚本会自动编译
 npm run typecheck   # 类型检查
 npm test            # 构建并运行测试
 npm run build       # 编译到 dist/
