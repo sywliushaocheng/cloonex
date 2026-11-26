@@ -29,6 +29,6 @@ Use the issue template and include the operating system, Node.js version, instal
 
 ## Scope
 
-The project is an early Codex/MCP integration prototype. Search is keyword-based; staleness checks compare linked file contents. Automatic conversation capture, semantic change analysis, cloud sync and team collaboration are not implemented. Discuss larger changes in an issue before investing in implementation.
+The project is an early local MCP project-memory service. Codex is the verified client; other local stdio MCP clients can be configured but have not been individually validated. Search is keyword-based; staleness checks compare linked file contents. Automatic conversation capture, semantic change analysis, cloud sync and team collaboration are not implemented. Discuss larger changes in an issue before investing in implementation.
 
 Contributions are made under the project's [MIT license](LICENSE).

@@ -31,7 +31,7 @@ for index, step in enumerate(transcript["steps"]):
     canvas = Image.new("RGB", (1280, 720), "#080f1d")
     draw = ImageDraw.Draw(canvas)
     draw.text((64, 42), "CLOONEX", font=font(29, True), fill="#8edcc5")
-    draw.text((230, 47), "LOCAL PROJECT MEMORY FOR CODEX", font=font(20), fill="#aab6cc")
+    draw.text((230, 47), "LOCAL MEMORY FOR AI CODING TOOLS / MCP", font=font(20), fill="#aab6cc")
     draw.text((64, 117), step["title"], font=font(42, True), fill="#f2f5fb")
     draw.text((64, 180), "Real MCP output replay / fictional order-export fixture", font=font(21), fill="#aab6cc")
     draw.rounded_rectangle((64, 243, 1216, 599), radius=20, fill="#111c30", outline="#2b3b55", width=2)

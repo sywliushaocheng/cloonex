@@ -1,6 +1,6 @@
 # Cloonex
 
-**Local project memory for Codex. Keep the intent. Recover the reason. Check what changed.**
+**Local project memory for AI coding tools, through MCP. Keep the intent. Recover the reason. Check what changed.**
 
 English · [简体中文](README.zh-CN.md)
 
@@ -10,7 +10,7 @@ English · [简体中文](README.zh-CN.md)
 
 A new AI session can read the code, but the reasons behind it may be missing. Cloonex stores task intent, project conventions, decisions and verified feature notes in a local SQLite database, and makes them available through MCP.
 
-Currently built and tested around **Codex**. No Cloonex account, hosted backend or always-running daemon is required. It runs on demand over stdio.
+Cloonex is a standard **MCP server over stdio**, with no Codex-only client check. AI applications that can launch local stdio MCP servers can configure it. **Codex is the currently verified client**, and the bundled config generator and skill installer target Codex; other clients have not been individually validated. No Cloonex account, hosted backend or always-running daemon is required. [Client setup guide →](docs/mcp-clients.md)
 
 ## See it work
 
@@ -49,6 +49,11 @@ cd cloonex
 npm ci
 npm install --global .
 cloonex init
+```
+
+Then configure your AI application using the [MCP client setup guide](docs/mcp-clients.md). For **Codex**, the bundled helpers are:
+
+```bash
 cloonex mcp-config --direct
 cloonex install-skill
 ```
@@ -60,6 +65,12 @@ cloonex install-skill
 `--direct` uses your installed Node and CLI paths. Regenerate the configuration after moving the installation or switching machines. If `cloonex` is not on your PATH, run `node dist/src/cli.js <command>` from the checkout instead.
 
 SQLite runs through WebAssembly, so no local C/C++ toolchain is needed. The default data directory is `~/.cloonex`; use `cloonex init --data-dir <directory>` to choose another. Program updates and personal data are separate.
+
+## Supported connection and client workflow
+
+The service launches with `cloonex mcp` or `node /absolute/path/to/dist/src/cli.js mcp`. Configure the client with the executable, arguments and `CLOONEX_DATA_DIR`. The [setup guide](docs/mcp-clients.md) includes a common JSON configuration example and explains how to reuse the workflow instructions outside Codex.
+
+The current transport is **local stdio**, not HTTP/SSE. A client that accepts only remote MCP URLs cannot connect directly. Reading and fingerprinting project files also requires the server process to have access to those local paths. Protocol compatibility does not establish that every client's model will follow the workflow correctly.
 
 ## A concrete example
 

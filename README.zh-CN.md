@@ -1,15 +1,15 @@
 # Cloonex
 
-**给 Codex 一个可追溯的项目知识库：记住开发要求、找回关键决定、检查关联代码是否变化。**
+**通过 MCP 为 AI 编程工具提供可追溯的本地项目知识库：记住开发要求、找回关键决定、检查关联代码是否变化。**
 
 [English](README.md) · 简体中文
 
 [![CI](https://github.com/sywliushaocheng/cloonex/actions/workflows/ci.yml/badge.svg)](https://github.com/sywliushaocheng/cloonex/actions/workflows/ci.yml)
 [![MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-在借助 AI 开发的同时，保存**开发意图、项目约定、关键决定和功能说明**，便于新会话继续使用。当前接入与验证对象是 Codex，其他客户端尚未验证。
+在借助 AI 开发的同时，保存**开发意图、项目约定、关键决定和功能说明**，便于新会话继续使用。服务端采用标准 **MCP stdio**，没有限制客户端必须是 Codex；支持启动本地 stdio MCP 服务的 AI 软件可以配置接入。
 
-首版接入对象是 **Codex**，通过 MCP 以 stdio 方式按需启动，不常驻后台、不需要账号、不上传个人数据。
+**当前已实测客户端是 Codex**，附带的配置生成和技能安装命令也优先适配 Codex；其他客户端尚未逐一实测。服务按需启动，不常驻后台、不需要 Cloonex 账号。参见[通用客户端配置指南](docs/mcp-clients.md#中文说明)。
 
 ## 先看演示
 
@@ -48,11 +48,16 @@ npm install --global .
 
 # 2. 初始化个人数据目录（默认 ~/.cloonex）
 cloonex init
+```
+
+接下来按[客户端配置指南](docs/mcp-clients.md#中文说明)配置所用 AI 软件。**Codex 用户**可继续执行：
+
+```bash
 
 # 3. 输出本地安装的 Codex 接入配置，按提示加入 config.toml
 cloonex mcp-config --direct
 
-# 4. 安装开发流程技能
+# 4. 安装 Codex 开发流程技能
 cloonex install-skill
 ```
 
@@ -64,7 +69,7 @@ SQLite 使用纯 WASM 版本，**不需要本地 C/C++ 编译工具链**。如�
 
 ## 接入配置示例
 
-`cloonex mcp-config --direct` 会输出当前机器的 Node 和程序路径，例如：
+下面是 **Codex TOML** 格式。`cloonex mcp-config --direct` 会输出当前机器的 Node 和程序路径；其他客户端使用同样的启动参数，按各自格式填写（参见[通用 JSON 示例](docs/mcp-clients.md)）：
 
 ```toml
 [mcp_servers.cloonex]
