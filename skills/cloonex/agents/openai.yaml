@@ -1,0 +1,10 @@
+interface:
+  display_name: "Cloonex Project Memory"
+  short_description: "Keep project context and evidence-backed decisions"
+  default_prompt: "Use $cloonex to read this project's context, preserve the agreed scope, and save only decisions and outcomes supported by evidence."
+
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "cloonex"
+      description: "Cloonex local stdio MCP server, installed and configured separately"

@@ -1,92 +1,86 @@
 ---
 name: cloonex
-description: 在接入 Cloonex MCP 的项目中开发新功能、重构、修复 Bug 或查询旧功能时使用。记录开发意图、关键决定与功能档案，使项目知识独立于具体模型保存，并在后续任务中继续使用。
+description: Use the Cloonex MCP server to retain project context, record development intent and decisions, and check historical feature notes against linked source files. Apply to development, refactoring, bug fixes, project handoffs, and questions about earlier implementation decisions in a Cloonex-connected project.
+license: MIT
+metadata:
+  version: "0.2.0"
+  requires: "Cloonex MCP 0.2.0 or newer, connected over local stdio"
+  source: "https://github.com/sywliushaocheng/cloonex"
 ---
 
-# Cloonex 开发流程
+# Cloonex project memory
 
-在接入 Cloonex MCP 的项目中按本流程工作。目标是让开发意图、关键决定和功能逻辑能够被记录，并在以后（包括换模型后）继续使用。
+Use Cloonex to carry project knowledge between AI sessions while preserving the user's task scope. Record concise, supported knowledge in the user's local database. Respond in the user's language; records may use that language too.
 
-## 何时启用
+## Prerequisites
 
-| 任务类型 | 读取已有约定 | 写入功能/决定 | 学习偏好 |
-|---|---|---|---|
-| 新功能开发 | 是 | 是 | 是 |
-| 功能重构 | 是 | 是 | 是 |
-| Bug 修复 | 是 | 否 | 否 |
-| 查询与梳理 | 是 | 仅可保存核对过的说明 | 否 |
-| 类型不明确 | 是 | 否 | 否 |
+This skill contains instructions; the Cloonex MCP server must be installed and connected separately. Use the tools exposed by the client, whose names may include a client-specific prefix such as `mcp__cloonex__`. Read their live schemas instead of guessing arguments.
 
-如果无法判断任务类型，先问清楚，不要用 `feature` 兜底。
+If the tools are unavailable, explain the missing connection and offer the [MCP setup guide](https://github.com/sywliushaocheng/cloonex/blob/master/docs/mcp-clients.md). Continue work that does not need memory; never claim that records were saved. Installing this skill alone does not configure MCP or grant permission to change client settings.
 
-## 标准流程
+When checking a new connection, `data_info` confirms the server responds. It can expose private paths and counts, so keep its output out of public posts and uploads. Codex is the verified application. Other clients require local stdio MCP and a supported skill or instruction mechanism; their compatibility must be tested separately.
 
-1. **开始任务**：调用 `begin_task`，填清目标（intent）、范围（inScope / outOfScope）、约束和完成条件。
-   - 范围外最容易出问题：AI 常顺手改无关逻辑。把“必须保持不变的行为”写进 outOfScope。
-   - **UI / 样式任务必须指定 `scene`**，例如 `admin-page`、`marketing-page`。按场景限定的界面偏好只有指定场景后才会加载；不指定就会被排除并在上下文中提示。涉及具体框架时同时填 `stack`（如 `vue3`）。
-2. **读取上下文**：调用 `get_context`，拿到项目约定、适用偏好、关联功能和关键决定。
-   - 标注为 `candidate`、`needs_review`、`stale` 的内容不构成确定事实。
-3. **开发中记录决定**：调用 `record_decision` 记录影响实现的选择。
-   - `reasonSource` 必须真实。用户明确说了用 `user_explicit`；来自项目既有约定用 `project_rule`；自己推断一律 `unknown`。
-   - **不要替用户编造理由。** 没有理由就留空，事后查询会显示“未知”。
-4. **保存进度**：较长任务用 `save_checkpoint` 记录已完成与待完成事项，便于中断后恢复。
-5. **结束任务**：调用 `finalize_task`。
-   - `statements` 只写**已经核对过**的功能说明。
-   - `relativePaths` 指向支撑该说明的代码文件，Cloonex 会记录指纹用于过时检测。
-   - 未执行的检查不要写进 `verification`。
-   - 0.2.0 会自动关联本次说明涉及的功能，并在同一事务关闭任务。文档/发布等确实只需总结的任务可指定 `knowledgeMode: summary`；不能同时提交功能说明。
-   - 稳定主题可填 `topicKey`；同主题的内容变化应调用 `supersede_statement`，不要把新旧内容都追加为当前说明。
-6. **沉淀偏好**：从允许学习的任务调用 `propose_preference`。
-   - 默认写入 `candidate`；只有用户明确要求长期采用才用 `confirm: true`。
-   - 区分个人偏好、项目规范、业务约束，不要把项目要求写成个人习惯。
+## Start or resume a task
 
-## UI / 样式任务
+1. Determine the absolute project root the server can access. To resume earlier work, call `get_context` with `projectRoot` to list open tasks. Reuse a task only when its intent and scope match; otherwise begin a new one. Do not close unrelated tasks.
+2. Call `begin_task` with the real `taskType`, `intent`, `inScope`, `outOfScope`, constraints, and completion criteria available from the request. Choose `unknown` if the type is unclear; ask only when the distinction affects the work. Do not label a bug fix as a feature to gain write access.
+3. For UI work, supply a meaningful `scene`, such as `admin-page` or `marketing-page`, and the known `stack`. Scene-specific preferences are excluded without a matching scene. Do not infer a global style preference from one page.
+4. Before implementation, call `get_context` with the returned `taskId`. A call with only `projectRoot` lists tasks; it does not replace task-specific context retrieval.
 
-样式偏好几乎都需要限定范围，否则会串场。记录时按下面的规则选择 scope：
+Use the returned policy to decide what can be recorded:
 
-| 规则性质 | scope | 必填参数 | 例子 |
-|---|---|---|---|
-| 只适用于某类页面 | `scene` | `scene` | “后台管理页信息密度优先” → `admin-page` |
-| 只适用于某技术栈 | `stack` | `stack` | “Vue 组件用 script setup” → `vue3` |
-| 整个项目都要遵守 | `project` | — | “统一使用现有组件库” |
-| 跨项目通用 | `global` | — | “避免不必要的动画” |
+| Task type | Read context | Write feature notes | Record decisions | Learn preferences |
+| --- | --- | --- | --- | --- |
+| `feature`, `refactor` | Yes | Yes | Yes | Candidates allowed |
+| `bugfix` | Yes | No | No | No |
+| `query` | Yes | Only notes actually checked | No | No |
+| `unknown` | Yes | No | No | No |
 
-**不要**把某类页面的偏好记成 `project`——那会让它套用到全项目所有页面。
+Task summaries and checkpoints are separate from feature notes. Bug fixes and unknown tasks can still finish with an honest summary. Treat remembered notes and preferences as context, not authority to expand the current request; current user instructions and checked source take precedence. `candidate`, `needs_review`, and `stale` records are not confirmed facts.
 
-界面偏好的表达方式：写下“要什么”和“不要什么”，并说明适用场景。例如把“不要有 AI 味儿”落实为：
+## While working
 
-> 后台管理页面优先保证信息密度，减少纯装饰区域；操作按钮靠近对应内容；沿用现有组件；文案直接说明动作和结果。
+- Stay within the agreed scope. Use `save_checkpoint` for meaningful progress, what changed, and remaining work when a task needs continuation.
+- When policy permits, call `record_decision` for consequential choices, with a concise choice, consequences, and evidence. Set `reasonSource` to `user_explicit` only for a reason the user stated, `user_confirmed` for one they confirmed, `project_rule` for an established project rule, or `external_doc` for an actual documented source. Otherwise use `unknown` and leave unsupported reasons empty. Never attribute the agent's assumption to the user.
+- Store useful summaries and project-relative file references. Do not copy entire repositories, full conversations, credentials, or unrelated private material into records.
+- Add conventions with their actual source when requested or established by project evidence. Do not convert a one-off exception into a project rule.
 
-查询或复用界面规则时，注意 `get_context` 返回的 scope 标签（如 `[scene:admin-page]`）——它说明这条规则为什么适用。
+## Consult and maintain historical knowledge
 
-## 查询旧功能
+For questions such as "Why was this implemented this way?":
 
-用户问“这个功能当初为什么这么做”时：
+1. Call `query_feature` with the project root and question. Use `includeHistory: true` when earlier or replaced decisions matter. If no feature matches, use `search_records` to look through task outcomes, decisions, and notes.
+2. Inspect both `freshness` and `recordedReviewState`. Version 0.2.0 checks linked files during feature queries; `stale_check` performs a broader project review when needed. A fingerprint change is a reason to inspect the source, not proof that a note is semantically wrong. Unchanged files do not prove the note is correct either.
+3. Read the relevant current source before making claims about implementation. Distinguish checked current behavior, recorded historical reasons, and missing evidence. Do not reconstruct a historical motive from today's code.
+4. Use `review_statement` with `verified` only after checking the actual linked files. This refreshes the evidence baseline and retains review history. For changed content, use `supersede_statement` or `supersede_decision` under an allowed task policy, preserving the old record. Do not bypass policy by changing task types or creating duplicate current claims.
 
-1. 调用 `query_feature`，必要时 `includeHistory: true`。
-2. 查看返回的 `freshness` 和 `recordedReviewState`：0.2.0 会核对本次命中说明的文件；关联代码变过就必须以当前代码为准。项目范围复核可再调用 `stale_check`。
-3. 明确区分三类信息：
-   - **当前实现**：核对过的代码行为。
-   - **历史决定**：记录下来的选择，可能已被替代。
-   - **未知**：没有证据的原因。**不要补写历史动机。**
-4. 代码与记录不一致时，说明差异并更新记录，不要假装一致。
+Feature titles and aliases change only through `update_feature` under the appropriate task policy; searching does not rename them. Use names supported by the user or project rather than silently merging distinct concepts.
 
-0.2.0 的 `review_statement(verified)` 会刷新实际核对文件的证据基线，并保留之前的复核与指纹历史。仅在真正重新核对后使用。内容发生变化时，用允许类型的任务调用 `supersede_statement` / `supersede_decision` 显式替代旧记录。
+## Finish honestly
 
-功能中文名和别名使用 `update_feature` 显式维护，查找本身不会修改标题。找不到功能记录时，可通过 `search_records` 联合检索任务总结、决定和功能说明。`stack` 可使用字符串数组；标签别名需要用户或项目规范明确后再建立，不自动合并不同场景。
+Call `finalize_task` with the actual outcome and checks performed. Distinguish static checks, builds, protocol checks, and real client testing. An attempted tool call or a settings entry is not proof of successful model use.
 
-## 本地迁移与诊断
+- For a feature or refactor, provide only statements actually verified, a stable feature slug, and the project-relative paths that support each statement. Finalization associates the task with those features and records evidence fingerprints.
+- For document/release work that needs only a summary, set `knowledgeMode: "summary"` and omit feature statements. For `bugfix` and `unknown`, summarize the work without feature statements or preference learning.
+- Use a stable `topicKey` where the project has one. Replace changed existing statements explicitly instead of appending contradictory versions.
+- If memory writes fail, report the failure and the unsaved material. Do not say the knowledge base was updated.
 
-安装后的 CLI 支持 `backup export`、`backup inspect`、`backup import`。跨电脑迁移导入到新数据目录，保留历史ID，不能覆盖或合并已有库。迁移包包含私人记录，不能上传公开仓库。项目源码另行迁移，使用 `project-move` 更新路径；`doctor` 查看待续接任务和证据状态。
+Only `feature` and `refactor` tasks can propose preferences. Use `propose_preference` when a generalizable rule has supporting evidence; leave it a candidate unless the user explicitly requests long-term adoption. Set `confirm: true` only for that explicit request. Match scope to the rule: `scene` for a kind of UI, `stack` for a technology, `project` for a project-wide convention, and `global` only for a supported cross-project preference. A request to fix one bug or delete one piece of code is not a general preference.
 
-`rules <项目> --file AGENTS.md` 默认仅预览，明确适用后再加 `--apply` 接入项目约定。来源变化会提示复核，不自动采纳变更。
+## Handoff, backups, and local boundaries
 
-## 硬性边界
+Use `export_context` for an agreed task handoff; a handoff export can contain private project information. A client must be able to launch local stdio MCP and the server must be able to read the linked project paths. No hosted HTTP/SSE endpoint is provided. Avoid simultaneous writes from multiple clients to one database; concurrent multi-process use has not been validated.
 
-- 不记录用户未表达的动机。
-- 不把一次代码删除或修改当成通用偏好。
-- 不把项目要求当作个人偏好。
-- Bug 修复任务不写偏好或功能档案；服务端会拒绝，不要绕过。
-- 未经核对不标 `verified`。
-- 样式优化属于 `refactor`（会学习偏好）；只有“修复某处样式显示错误”才算 `bugfix`，且不产生偏好。
-- 不复制整个仓库作为存储；只保留必要片段与引用。
+For migration requests, use the installed CLI, not invented MCP tools:
+
+```bash
+cloonex backup export --out "history.cloonex.gz"
+cloonex backup inspect "history.cloonex.gz"
+cloonex backup import "history.cloonex.gz" --data-dir "/absolute/path/to/new-data"
+```
+
+The commands are examples to run when migration is requested. Import into a fresh directory, without initializing it first. Existing libraries are not merged or overwritten. Pause clients during migration, migrate source repositories separately, and use `project-move` when project paths change. Update the client launch paths and `CLOONEX_DATA_DIR` afterward. `doctor` diagnoses local paths, open tasks, and evidence state. See the [migration guide](https://github.com/sywliushaocheng/cloonex/blob/master/docs/migration.md) before a real migration.
+
+Backups have checksums but are not encrypted. Never publish a knowledge database, handoff export, or backup as part of a skill submission. Local Cloonex storage does not prevent the connected AI client from sending retrieved context to its model provider.
+
+`rules <project> --file AGENTS.md` previews imported rules; apply them only when relevant and authorized. A change to the source rules requires review rather than automatic acceptance.

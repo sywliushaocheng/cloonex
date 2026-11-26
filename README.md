@@ -63,6 +63,8 @@ cloonex install-skill
 2. Reload the client as needed so it discovers the MCP server and skill, and review/trust the server in your client.
 3. Open a project and ask: **“Use the Cloonex workflow for this task. Read the project context first, preserve the agreed scope and record only facts you verify.”**
 
+The **[free MIT companion skill](docs/skill.md)** is also available as a standalone ZIP, without cloning. It explains when and how to use the MCP tools; install and configure the MCP server separately. [Download the skill](https://github.com/sywliushaocheng/cloonex/releases/download/skill-v0.2.0/cloonex-skill-0.2.0.zip).
+
 `--direct` uses your installed Node and CLI paths. Regenerate the configuration after moving the installation or switching machines. If `cloonex` is not found, make sure npm's global executables directory is on your PATH and reopen the terminal. From a source checkout, you can also run `node dist/src/cli.js <command>`.
 
 SQLite runs through WebAssembly, so no local C/C++ toolchain is needed. The default data directory is `~/.cloonex`; use `cloonex init --data-dir <directory>` to choose another. Program updates and personal data are separate.

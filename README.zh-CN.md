@@ -69,6 +69,8 @@ SQLite 使用纯 WASM 版本，**不需要本地 C/C++ 编译工具链**。如�
 
 可以直接说：“使用 Cloonex 流程处理本次任务，先读取项目上下文，保持约定范围，只保存实际核对过的说明。”客户端需要按需重新加载以发现服务与技能。Cloonex 不会自动采集全部聊天，模型需要调用工具或使用附带技能。
 
+另提供 **[免费 MIT 开源配套 Skill](docs/skill.md#中文说明)**，可直接[下载独立 ZIP](https://github.com/sywliushaocheng/cloonex/releases/download/skill-v0.2.0/cloonex-skill-0.2.0.zip)，无需克隆。Skill 负责指导 AI 何时、如何调用 MCP；服务仍需单独安装和配置。
+
 ## 接入配置示例
 
 0.2.0 可直接执行 `cloonex mcp-config --format json` 获取通用 JSON，`--format connection` 获取原始启动参数；默认仍输出 Codex TOML。无需先初始化数据库即可生成配置。
