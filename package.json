@@ -20,6 +20,7 @@
     "skills",
     "docs/验收状态.md",
     "README.md",
+    "README.zh-CN.md",
     "LICENSE"
   ],
   "engines": {
@@ -40,6 +41,7 @@
     "mcp": "node dist/src/mcp/server.js",
     "cli": "node dist/src/cli.js",
     "sync:schema": "node scripts/sync-schema.mjs",
+    "demo": "npm run build && node scripts/demo.mjs",
     "verify": "npm run typecheck && npm test",
     "prepare": "npm run build",
     "prepublishOnly": "npm run verify"

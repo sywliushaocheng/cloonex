@@ -1,149 +1,129 @@
 # Cloonex
 
-在借助 AI 开发的同时，持续保存**开发意图、项目约定、关键决定和功能逻辑**，让项目知识独立于具体模型存在，并在长期迭代后仍然可以追溯。
+**Local project memory for Codex. Keep the intent. Recover the reason. Check what changed.**
 
-首版接入对象是 **Codex**，通过 MCP 以 stdio 方式按需启动，不常驻后台、不需要账号、不上传个人数据。
+English · [简体中文](README.zh-CN.md)
 
-## 它解决什么
+[![CI](https://github.com/sywliushaocheng/cloonex/actions/workflows/ci.yml/badge.svg)](https://github.com/sywliushaocheng/cloonex/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Node.js](https://img.shields.io/badge/node-%3E%3D20.11-339933.svg)](package.json)
 
-| 问题 | Cloonex 的做法 |
-|---|---|
-| AI 开发偏离原意 | 任务开始先明确目标、范围与完成条件，结束后逐项核对 |
-| 换模型后风格不一致 | 项目约定与决定保存在本地，任何模型都能读取 |
-| 产出“AI 味”重 | 记录认可与不认可的实例，按场景限定偏好适用范围 |
-| 迭代一两年后忘了功能逻辑 | 功能档案区分当前说明与历史决定，代码变化后提示复核 |
-| 经验散落在对话里 | 关键决定与理由结构化保存，可检索、可导出 |
+A new AI session can read the code, but the reasons behind it may be missing. Cloonex stores task intent, project conventions, decisions and verified feature notes in a local SQLite database, and makes them available through MCP.
 
-## 快速开始
+Currently built and tested around **Codex**. No Cloonex account, hosted backend or always-running daemon is required. It runs on demand over stdio.
 
-需要 Node.js ≥ 20.11 和 Git。首次使用请从本仓库安装；GitHub 开源与 npm 发布是独立步骤。
+## See it work
+
+![Replay of real MCP calls: define scope, save a decision, reconnect, detect an edited file and reject learning from a bug fix.](docs/assets/demo.gif)
+
+*Selected output from real MCP calls against a fictional order-export fixture. This is an output replay, not a recording of a model conversation. [Text version](docs/assets/demo-transcript.json) · [Static image](docs/assets/demo.png).*
+
+Try the same workflow without a Codex account or API key:
 
 ```bash
-# 1. 获取源码并安装（prepare 脚本会自动编译）
+# After cloning and running npm ci:
+npm run demo
+```
+
+The demo starts two separate MCP processes against the same temporary database, retrieves the saved decision, edits a linked source file and checks for stale notes. It leaves your own knowledge base untouched. [Full walkthrough →](docs/example.md)
+
+## What it helps with
+
+| When you need to… | Cloonex provides… |
+|---|---|
+| Keep a task within scope | Intent, constraints, exclusions and completion criteria |
+| Continue in another session | Project conventions and applicable confirmed preferences |
+| Explain an old implementation | Feature notes, decisions and explicitly recorded reasons |
+| Check whether a note needs review | On-demand fingerprints of linked source files |
+| Hand a task to someone else | A Markdown context export |
+
+Cloonex is a structured knowledge store, not automatic conversation capture. Your agent must use the tools or the included skill. File fingerprints detect content changes, not semantic changes, and do not prove an explanation is correct.
+
+## Quick start
+
+Requires **Node.js ≥ 20.11**, npm and Git. Install from this repository; a GitHub release does not imply an npm package has been published.
+
+```bash
 git clone https://github.com/sywliushaocheng/cloonex.git
 cd cloonex
 npm ci
 npm install --global .
-
-# 2. 初始化个人数据目录（默认 ~/.cloonex）
 cloonex init
-
-# 3. 输出本地安装的 Codex 接入配置，按提示加入 config.toml
 cloonex mcp-config --direct
-
-# 4. 安装开发流程技能
 cloonex install-skill
 ```
 
-SQLite 使用纯 WASM 版本，**不需要本地 C/C++ 编译工具链**。如需指定数据目录，可执行 `cloonex init --data-dir <目录>`。
+1. Add the generated MCP configuration to your Codex config, usually `~/.codex/config.toml` (or the config under `CODEX_HOME` when set).
+2. Reload the client as needed so it discovers the MCP server and skill, and review/trust the server in your client.
+3. Open a project and ask: **“Use the Cloonex workflow for this task. Read the project context first, preserve the agreed scope and record only facts you verify.”**
 
-配置写入 Codex 后，需要在 Codex 中审阅并信任该 MCP 服务。之后在项目里说“开始一个新功能任务”即可走完整流程。
+`--direct` uses your installed Node and CLI paths. Regenerate the configuration after moving the installation or switching machines. If `cloonex` is not on your PATH, run `node dist/src/cli.js <command>` from the checkout instead.
 
-## 接入配置示例
+SQLite runs through WebAssembly, so no local C/C++ toolchain is needed. The default data directory is `~/.cloonex`; use `cloonex init --data-dir <directory>` to choose another. Program updates and personal data are separate.
 
-`cloonex mcp-config --direct` 会输出当前机器的 Node 和程序路径，例如：
+## A concrete example
 
-```toml
-[mcp_servers.cloonex]
-command = '/absolute/path/to/node'
-args = ['/absolute/path/to/cloonex/dist/src/cli.js', 'mcp']
+Suppose an export should use only the orders already loaded on one page. The workflow stores that scope and the supported reason for it. A later MCP process can retrieve both. If the linked file changes, an explicit stale check reports that the note needs review.
 
-[mcp_servers.cloonex.env]
-CLOONEX_DATA_DIR = '/absolute/path/to/cloonex-data'
+```text
+begin_task → get_context → record_decision → finalize_task
+                               ↓
+                    query_feature + stale_check
 ```
 
-以上是占位示例，请使用命令生成的真实路径；移动程序或更换机器后需重新生成配置。
+Run `npm run demo` or follow the [complete example](docs/example.md), including prompts for using it in your own project. Retrieval and stale checking are separate calls; there is no background watcher.
 
-`CLOONEX_DATA_DIR` 是**个人数据目录**，与程序安装位置完全独立。程序升级或重装不会清除数据。
+## Learning boundaries
 
-## 使用流程
+These boundaries are enforced by server-side policy guards.
 
-```
-begin_task → get_context → (开发) → record_decision / save_checkpoint → finalize_task → propose_preference
-```
+| Task type | Read context | Feature notes | Decisions | Learn preferences |
+|---|---|---|---|---|
+| New feature / refactor | Yes | Yes | Yes | Candidate by default |
+| Bug fix | Yes | No | No | No |
+| Query / documentation | Yes | Checked notes only | No | No |
+| Unknown | Yes | No | No | No |
 
-- **begin_task**：确定任务类型。类型决定学习边界，由服务端强制执行。
-- **get_context**：读取项目约定、适用偏好、关联功能与关键决定。
-- **record_decision**：记录方案与理由。`reasonSource` 必须真实，模型不得编造用户动机。
-- **finalize_task**：写入已核对的功能说明，并记录代码指纹用于过时检测。
-- **propose_preference**：默认写入候选偏好，只有用户明确要求长期采用才确认。
+Unconfirmed preferences do not enter task context as constraints. Confirmed preferences are selected by global, project, stack or scene scope. Revoked rules stop applying. Missing reasons stay unknown; the model should not invent them.
 
-## 学习边界（硬性）
-
-| 任务类型 | 读取已有约定 | 写入功能/决定 | 学习偏好 |
-|---|---|---|---|
-| 新功能开发 | 是 | 是 | 是 |
-| 功能重构 | 是 | 是 | 是 |
-| Bug 修复 | 是 | **否** | **否** |
-| 查询与梳理 | 是 | 仅可保存核对过的说明 | 否 |
-| 类型不明确 | 是 | 否 | 否 |
-
-这些规则在 `src/domain/policy.ts` 中定义，并在写入前由 `assertCan*` 守卫执行。**不依赖提示词自觉遵守**：Bug 修复任务即使调用写入工具也会被拒绝。
-
-## 关键设计
-
-**事实、理由、推测分开保存。** 代码能证明行为，记录能证明当时的决定；没有证据的原因标为 `unknown`，系统不会事后补写动机。
-
-**当前说明与历史决定分开。** 修改功能说明时旧版本标记为历史并保留关联，因此可以回答“现在怎么实现”和“当初为什么这样做”。
-
-**按需核对，不后台扫描。** 功能说明关联文件指纹，查询或开发时按需比对，代码变化后提示复核。
-
-**候选偏好不等于约束。** 候选规则可被检索，但不会注入任务上下文；只有已确认的规则才作为约束。
-
-## CLI
+## Useful commands
 
 ```bash
-cloonex info --detail          # 数据位置与记录数量
-cloonex projects               # 已注册项目
-cloonex project <路径>         # 项目约定与功能档案
-cloonex tasks <路径>           # 任务历史
-cloonex show <任务ID>          # 任务上下文
-cloonex export <任务ID>        # 导出交接 Markdown
-cloonex stale <路径>           # 检查记录与代码是否不一致
-cloonex preferences            # 偏好列表
-cloonex preference-revoke <ID> # 撤销偏好
-cloonex mcp-config --direct    # 输出本地安装的接入配置
-cloonex install-skill          # 安装开发流程技能
+cloonex info --detail          # Data location and record counts
+cloonex projects               # Registered projects
+cloonex tasks <project-path>   # Task history
+cloonex show <task-id>         # Task context
+cloonex export <task-id>       # Markdown handover
+cloonex stale <project-path>   # Check linked-file fingerprints
+cloonex preferences            # Preference candidates and confirmed rules
+cloonex preference-revoke <id> # Stop using a rule
 ```
 
-## 技术选型说明
+## Status and limits
 
-- **TypeScript / Node.js（≥ 20.11）**，通过 npm 分发。
-- **SQLite 使用 `node-sqlite3-wasm`**：纯 WebAssembly，无需本地编译，Windows 与 macOS 安装时不需要工具链。
-  - 开发中实测 `better-sqlite3` 的原生预编译二进制在本机会导致解释器崩溃（0xC0000005），因此改用 WASM 版本。
-  - 该构建的 SQLite 为 3.53，`journal_mode` 为 `delete`（不支持 WAL）。MCP 服务每个进程使用单一连接，写入已串行化。
-- **不收集数据**：无账号、无云端服务、无默认遥测。使用云端模型时，被选中的约定与代码材料会进入模型上下文——这与“数据保存在本地”是两件事，不混淆表述。
+This is an **early integration prototype**. The automated suite covers domain rules and real MCP stdio transport; the runnable demo also checks retrieval across two server processes. Windows has local validation records. CI is configured for Windows and Linux with Node 20, 22 and 24; check the workflow results for current status. macOS has not been validated on hardware.
 
-## 分享给别人
+- Search uses keywords. Staleness checks only cover explicitly linked evidence.
+- SQLite uses a WASM build without WAL; concurrent multi-process writes are not validated.
+- No GUI, cloud sync, team collaboration or background conversation capture.
+- No measured claims about model quality, token savings or cross-model consistency.
+- Records stay local by default. Material selected for a cloud model's context is still sent to that model service. SQLite data is not encrypted by Cloonex.
 
-见 [docs/分享指南.md](docs/分享指南.md)。可直接分享本仓库地址，或执行 `npm pack` 后分发生成的安装包。
+See the [validation notes (中文)](docs/验收状态.md) and [distribution guide (中文)](docs/分享指南.md).
 
-## 开发
+## Development and feedback
 
 ```bash
-npm install         # prepare 脚本会自动编译
-npm run typecheck   # 类型检查
-npm test            # 构建并运行测试
-npm run build       # 编译到 dist/
+npm ci
+npm run verify          # Typecheck, build and automated tests
+npm run demo            # Real MCP workflow in an isolated temporary project
+npm pack --dry-run      # Inspect distributable files
 ```
 
-测试覆盖两层：
+[Report a bug](https://github.com/sywliushaocheng/cloonex/issues/new/choose), suggest a use case or send a focused pull request. English and Chinese are welcome. [Contributing guide](CONTRIBUTING.md).
 
-- `test/core.test.ts`：领域逻辑，含学习边界、偏好生命周期、过时检测、历史保留。
-- `test/idempotency.test.ts`：重复结束任务与说明去重。
-- `test/scene.test.ts`：场景、技术栈偏好隔离及旧数据库迁移。
-- `test/mcp.test.ts`：通过真实 stdio 传输启动 MCP 服务，按 Codex 的调用方式验证完整闭环。
+If you try it, tell us where setup failed, whether a later session recovered useful context, or which returned records were unhelpful. Please remove secrets and private knowledge-base content from reports.
 
-## 当前状态
+## License
 
-已完成**接入原型**阶段：Codex 能够读取约定、写入决定与功能说明、查询旧功能，失败可见；Bug 修复任务不产生学习记录；代码变化后过时检测生效。
-
-尚未实现：图形界面、跨模型适配、后台事件钩子、设计图解析、团队协作。详见 `docs/验收状态.md`。
-
-## 反馈与贡献
-
-欢迎通过 [Issues](https://github.com/sywliushaocheng/cloonex/issues) 报告问题或提出建议，也欢迎提交 Pull Request。提交前请运行 `npm run verify`；问题报告请说明 Node.js 版本、操作系统和复现步骤，避免附带密钥或个人知识库数据。
-
-## 许可证
-
-本项目采用 [MIT License](LICENSE)。
+[MIT](LICENSE)

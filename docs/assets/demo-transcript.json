@@ -1,0 +1,50 @@
+{
+  "kind": "Real MCP output replay",
+  "scenario": "Fictional order-export fixture",
+  "command": "npm run demo",
+  "steps": [
+    {
+      "title": "Keep the task in scope",
+      "lines": [
+        "> begin_task / get_context",
+        "intent: Export the rows already loaded on the current page.",
+        "convention loaded: Do not fetch unloaded pages."
+      ]
+    },
+    {
+      "title": "Save the decision with evidence",
+      "lines": [
+        "> record_decision / finalize_task",
+        "choice: Current page only",
+        "reason source: external_doc (sample requirements)",
+        "file fingerprints saved: 1"
+      ]
+    },
+    {
+      "title": "Reconnect and recover the reason",
+      "lines": [
+        "> query_feature (new MCP process, same database)",
+        "feature found: true",
+        "choice: Current page only",
+        "reason: Keep the initial implementation small; do not fetch other pages."
+      ]
+    },
+    {
+      "title": "Check again after a file edit",
+      "lines": [
+        "> stale_check (explicit check, no background watcher)",
+        "before edit: 0 statements need review",
+        "after edit: 1 statement needs review",
+        "linked file: src/export.mjs (changed)"
+      ]
+    },
+    {
+      "title": "Enforce the learning boundary",
+      "lines": [
+        "> propose_preference (bugfix task)",
+        "write rejected: true",
+        "Existing context remains readable; no preference was saved."
+      ]
+    }
+  ]
+}

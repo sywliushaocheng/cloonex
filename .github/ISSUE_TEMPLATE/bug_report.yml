@@ -1,0 +1,32 @@
+name: Bug report / 问题反馈
+description: Report a reproducible problem / 提交可复现的问题
+title: "[Bug]: "
+body:
+  - type: markdown
+    attributes:
+      value: Please remove credentials and private knowledge-base content. 请勿上传密钥或个人知识库。
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment / 环境
+      description: OS, Node.js version, client version, installation method / 系统、Node.js、客户端版本与安装方式
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce / 复现步骤
+      description: Include a minimal example and the command or MCP tool used.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected and actual behavior / 预期与实际表现
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Redacted logs / 脱敏日志
+      render: text
