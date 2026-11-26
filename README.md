@@ -14,6 +14,8 @@ Cloonex is a standard **MCP server over stdio**, with no Codex-only client check
 
 ## See it work
 
+**New in 0.2.0:** portable history backups, live evidence checks, re-review baselines, explicit record replacement, unified search and project diagnostics. [Release notes](docs/releases/v0.2.0.md).
+
 ![Replay of real MCP calls: define scope, save a decision, reconnect, detect an edited file and reject learning from a bug fix.](docs/assets/demo.gif)
 
 *Selected output from real MCP calls against a fictional order-export fixture. This is an output replay, not a recording of a model conversation. [Text version](docs/assets/demo-transcript.json) · [Static image](docs/assets/demo.png).*
@@ -44,11 +46,11 @@ Cloonex is a structured knowledge store, not automatic conversation capture. You
 Requires **Node.js ≥ 20.11 and npm**. You do **not** need Git, a source checkout or a local TypeScript build. Install the prebuilt release package directly:
 
 ```bash
-npm install --global "https://github.com/sywliushaocheng/cloonex/releases/download/v0.1.0/cloonex-0.1.0.tgz"
+npm install --global "https://github.com/sywliushaocheng/cloonex/releases/download/v0.2.0/cloonex-0.2.0.tgz"
 cloonex init
 ```
 
-The package contains precompiled JavaScript from the `v0.1.0` source tag; npm installs its runtime dependencies automatically. Network access to GitHub/npm is required. Use the named `.tgz` asset, not GitHub's source-code ZIP or tar archive. [Release and SHA-256 checksum](https://github.com/sywliushaocheng/cloonex/releases/tag/v0.1.0). The npm registry package has not been published, so use the full URL above rather than `npm install -g cloonex` or `npx cloonex`.
+The package contains precompiled JavaScript from the `v0.2.0` source tag; npm installs its runtime dependencies automatically. Network access to GitHub/npm is required. Use the named `.tgz` asset, not GitHub's source-code ZIP or tar archive. [Release and SHA-256 checksum](https://github.com/sywliushaocheng/cloonex/releases/tag/v0.2.0). The npm registry package has not been published, so use the full URL above rather than `npm install -g cloonex` or `npx cloonex`.
 
 Then configure your AI application using the [MCP client setup guide](docs/mcp-clients.md). For **Codex**, the bundled helpers are:
 
@@ -65,11 +67,30 @@ cloonex install-skill
 
 SQLite runs through WebAssembly, so no local C/C++ toolchain is needed. The default data directory is `~/.cloonex`; use `cloonex init --data-dir <directory>` to choose another. Program updates and personal data are separate.
 
-To reinstall this version, run the same `npm install --global` command. To upgrade later, use the package URL from the target release, regenerate the client configuration if paths change, and reinstall the Codex skill if you use it. Do not delete your data directory to upgrade the program.
+To reinstall this version, run the same `npm install --global` command. Before upgrading an existing installation, pause clients and keep a backup of the data directory. The additive schema upgrade preserves existing records; older binaries must not be used on the upgraded library. Regenerate client configuration if paths change and reinstall the Codex skill if you use it.
+
+## Keep your history when moving computers
+
+On the old computer, with 0.2.0 installed:
+
+```bash
+cloonex backup export --out "history.cloonex.gz"
+```
+
+Transfer the archive yourself. On the new computer, import directly into a fresh directory without running `init` first:
+
+```bash
+cloonex backup inspect "history.cloonex.gz"
+cloonex backup import "history.cloonex.gz" --data-dir "/absolute/path/to/CloonexData"
+cloonex doctor
+cloonex mcp-config --format json
+```
+
+All historical IDs, task/feature relationships, decisions, preferences, evidence and exported handovers are retained. Existing data is never overwritten or merged. Source repositories and client settings are separate; use `project-move` if repository paths changed. Backups are checksummed, not encrypted. [Complete migration guide →](docs/migration.md)
 
 ## Supported connection and client workflow
 
-The service launches with `cloonex mcp` or `node /absolute/path/to/dist/src/cli.js mcp`. Configure the client with the executable, arguments and `CLOONEX_DATA_DIR`. The [setup guide](docs/mcp-clients.md) includes a common JSON configuration example and explains how to reuse the workflow instructions outside Codex.
+The service launches with `cloonex mcp` or `node /absolute/path/to/dist/src/cli.js mcp`. Use `cloonex mcp-config --format json` for a common JSON envelope, `--format connection` for raw launch values, or the default Codex TOML. These commands use installed local paths and work before initialization. The [setup guide](docs/mcp-clients.md) explains the remaining client-specific differences.
 
 The current transport is **local stdio**, not HTTP/SSE. A client that accepts only remote MCP URLs cannot connect directly. Reading and fingerprinting project files also requires the server process to have access to those local paths. Protocol compatibility does not establish that every client's model will follow the workflow correctly.
 
@@ -83,7 +104,7 @@ begin_task → get_context → record_decision → finalize_task
                     query_feature + stale_check
 ```
 
-Run `npm run demo` or follow the [complete example](docs/example.md), including prompts for using it in your own project. Retrieval and stale checking are separate calls; there is no background watcher.
+Run `npm run demo` or follow the [complete example](docs/example.md), including prompts for using it in your own project. In 0.2.0, feature retrieval and task context check linked evidence on demand; `stale_check` remains available for a project-wide report. There is no background watcher.
 
 ## Learning boundaries
 
@@ -109,13 +130,18 @@ cloonex export <task-id>       # Markdown handover
 cloonex stale <project-path>   # Check linked-file fingerprints
 cloonex preferences            # Preference candidates and confirmed rules
 cloonex preference-revoke <id> # Stop using a rule
+cloonex search "order export" # Search tasks, features, decisions and notes
+cloonex doctor --check-files   # Check project paths, evidence and open tasks
+cloonex project-move <id> <new-path> # Relink an existing project
+cloonex rules <project-path>   # Preview a rule file; --apply imports it
+cloonex labels                # Inspect scene/stack tags and explicit aliases
 ```
 
 ## Status and limits
 
 This is an **early integration prototype**. The automated suite covers domain rules and real MCP stdio transport; the runnable demo also checks retrieval across two server processes. Windows has local validation records. CI is configured for Windows and Linux with Node 20, 22 and 24; check the workflow results for current status. macOS has not been validated on hardware.
 
-- Search uses keywords. Staleness checks only cover explicitly linked evidence.
+- Search uses local words/phrases and aliases across record types. Staleness checks only cover explicitly linked evidence and do not infer semantics.
 - SQLite uses a WASM build without WAL; concurrent multi-process writes are not validated.
 - No GUI, cloud sync, team collaboration or background conversation capture.
 - No measured claims about model quality, token savings or cross-model consistency.

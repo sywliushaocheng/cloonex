@@ -32,7 +32,7 @@ export const beginTaskSchema = {
   outOfScope: z.string().optional().describe('必须保持不变的行为'),
   constraints: z.string().optional().describe('约束，如复用组件、禁止新增依赖'),
   doneCriteria: z.string().optional().describe('出现什么结果才算完成'),
-  stack: z.string().optional().describe('技术栈标识，如 vue3 / react；用于加载按栈限定的偏好'),
+  stack: z.union([z.string(), z.array(z.string().min(1))]).optional().describe('一个或多个技术栈标识，用于加载按栈限定的偏好'),
   scene: z
     .string()
     .optional()
@@ -79,6 +79,7 @@ export const finalizeTaskSchema = {
           .describe('说明所属部分'),
         content: z.string(),
         relativePaths: z.array(z.string()).optional().describe('支撑该说明的代码文件（项目相对路径）'),
+        topicKey: z.string().min(1).optional().describe('稳定主题标识；已有主题需显式替代旧说明'),
       }),
     )
     .optional(),
@@ -90,6 +91,7 @@ export const finalizeTaskSchema = {
       boundary: z.string().optional(),
     })
     .optional(),
+  knowledgeMode: z.enum(['feature', 'summary']).optional().describe('纯文档/发布任务可明确只保留任务总结'),
 };
 
 export const queryFeatureSchema = {
@@ -141,6 +143,26 @@ export const addConventionSchema = {
 export const reviewStatementSchema = {
   statementId: z.string().describe('功能说明 ID'),
   reviewState: z.enum(['verified', 'needs_review', 'stale', 'unknown']).describe('核对后的状态'),
+  relativePaths: z.array(z.string()).optional().describe('实际核对的代码文件；verified 会刷新证据基线并保留历史'),
+  note: z.string().optional(),
+};
+
+export const supersedeStatementSchema = {
+  taskId: z.string(), statementId: z.string(), content: z.string().min(1),
+  section: z.enum(['purpose','flow','interaction','implementation','rule','dependency','verification']).optional(),
+  topicKey: z.string().min(1).optional(), relativePaths: z.array(z.string()).optional(),
+  reviewState: z.enum(['verified','needs_review','unknown']).default('unknown'), note: z.string().min(1),
+};
+export const supersedeDecisionSchema = {
+  taskId: z.string(), decisionId: z.string(), title: z.string(), choice: z.string(), reason: z.string().optional(),
+  reasonSource: z.enum(['user_explicit','user_confirmed','project_rule','external_doc','unknown']).default('unknown'),
+  consequence: z.string().optional(),
+};
+export const searchRecordsSchema = { projectRoot: z.string().optional(), group: z.string().optional(), query: z.string(), limit: z.number().int().min(1).max(100).optional() };
+export const healthSchema = { projectRoot: z.string().optional(), checkFiles: z.boolean().optional() };
+export const updateFeatureSchema = {
+  taskId: z.string(), featureSlug: z.string(), title: z.string().optional(), purpose: z.string().optional(),
+  boundary: z.string().optional(), aliases: z.array(z.string().min(1)).optional(),
 };
 
 export const projectListSchema = {};
@@ -162,6 +184,6 @@ export const taskUpdateSchema = {
   outcome: z.string().optional(),
   verification: z.string().optional(),
   featureSlug: z.string().optional(),
-  stack: z.string().optional().describe('调整技术栈；影响按栈限定的偏好是否加载'),
+  stack: z.union([z.string(), z.array(z.string().min(1))]).optional().describe('调整一个或多个技术栈；影响按栈限定的偏好是否加载'),
   scene: z.string().optional().describe('调整业务场景；影响按场景限定的界面偏好是否加载'),
 };

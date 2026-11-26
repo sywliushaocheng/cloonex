@@ -1,6 +1,6 @@
 {
   "name": "cloonex",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "在借助 AI 开发的同时，本地保存开发意图、项目约定、关键决定与功能档案，使项目知识独立于具体模型。",
   "type": "module",
   "license": "MIT",
@@ -18,7 +18,7 @@
   "files": [
     "dist/src",
     "skills",
-    "docs/验收状态.md",
+    "docs",
     "README.md",
     "README.zh-CN.md",
     "LICENSE"
@@ -37,11 +37,12 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "npm run build && node --test dist/test/core.test.js dist/test/idempotency.test.js dist/test/scene.test.js dist/test/mcp.test.js",
+    "test": "npm run build && node --test dist/test/core.test.js dist/test/idempotency.test.js dist/test/scene.test.js dist/test/mcp.test.js dist/test/upgrade.test.js",
     "mcp": "node dist/src/mcp/server.js",
     "cli": "node dist/src/cli.js",
     "sync:schema": "node scripts/sync-schema.mjs",
     "demo": "npm run build && node scripts/demo.mjs",
+    "test:install": "npm run build && node scripts/verify-install.mjs",
     "verify": "npm run typecheck && npm test",
     "prepare": "npm run build",
     "prepublishOnly": "npm run verify"

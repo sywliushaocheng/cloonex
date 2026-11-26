@@ -13,6 +13,8 @@
 
 ## 先看演示
 
+**0.2.0 新增**：换电脑迁移包、查询时效检查、复核刷新指纹、显式替代历史说明/决定、联合检索及项目健康检查。[版本说明](docs/releases/v0.2.0.md)
+
 ![真实 MCP 调用回放：明确范围、记录决定、重新连接后找回理由、检测文件变化、拒绝修复任务学习偏好。](docs/assets/demo.gif)
 
 这是虚构订单导出案例的真实调用结果回放，不是模型聊天录屏。[文字回放](docs/assets/demo-transcript.json) · [完整案例](docs/example.zh-CN.md)
@@ -41,13 +43,13 @@ npm run demo
 
 ```bash
 # 1. 直接安装工具
-npm install --global "https://github.com/sywliushaocheng/cloonex/releases/download/v0.1.0/cloonex-0.1.0.tgz"
+npm install --global "https://github.com/sywliushaocheng/cloonex/releases/download/v0.2.0/cloonex-0.2.0.tgz"
 
 # 2. 初始化个人数据目录（默认 ~/.cloonex）
 cloonex init
 ```
 
-安装包包含从 `v0.1.0` 标签构建的 JavaScript，npm 自动安装运行依赖，需要能访问 GitHub/npm。请使用名为 `cloonex-0.1.0.tgz` 的资产，不是 GitHub 自动生成的源码 ZIP/TAR；[Release 页面](https://github.com/sywliushaocheng/cloonex/releases/tag/v0.1.0)附有 SHA-256 校验文件。目前尚未发布 npm 注册表软件包，请使用完整安装包 URL，不要直接执行 `npm install -g cloonex` 或 `npx cloonex`。
+安装包包含从 `v0.2.0` 标签构建的 JavaScript，npm 自动安装运行依赖，需要能访问 GitHub/npm。请使用名为 `cloonex-0.2.0.tgz` 的资产，不是 GitHub 自动生成的源码 ZIP/TAR；[Release 页面](https://github.com/sywliushaocheng/cloonex/releases/tag/v0.2.0)附有 SHA-256 校验文件。目前尚未发布 npm 注册表软件包，请使用完整安装包 URL，不要直接执行 `npm install -g cloonex` 或 `npx cloonex`。
 
 接下来按[客户端配置指南](docs/mcp-clients.md#中文说明)配置所用 AI 软件。**Codex 用户**可继续执行：
 
@@ -69,6 +71,8 @@ SQLite 使用纯 WASM 版本，**不需要本地 C/C++ 编译工具链**。如�
 
 ## 接入配置示例
 
+0.2.0 可直接执行 `cloonex mcp-config --format json` 获取通用 JSON，`--format connection` 获取原始启动参数；默认仍输出 Codex TOML。无需先初始化数据库即可生成配置。
+
 下面是 **Codex TOML** 格式。`cloonex mcp-config --direct` 会输出当前机器的 Node 和程序路径；其他客户端使用同样的启动参数，按各自格式填写（参见[通用 JSON 示例](docs/mcp-clients.md)）：
 
 ```toml
@@ -83,6 +87,27 @@ CLOONEX_DATA_DIR = '/absolute/path/to/cloonex-data'
 以上是占位示例，请使用命令生成的真实路径；移动程序或更换机器后需重新生成配置。
 
 `CLOONEX_DATA_DIR` 是**个人数据目录**，与程序安装位置完全独立。程序升级或重装不会清除数据。
+
+## 换电脑保留历史
+
+旧电脑升级到 0.2.0 后打包：
+
+```bash
+cloonex backup export --out "history.cloonex.gz"
+```
+
+把文件复制到新电脑，安装程序后直接导入到新目录，**不需要先执行 `init`**：
+
+```bash
+cloonex backup inspect "history.cloonex.gz"
+cloonex backup import "history.cloonex.gz" --data-dir "D:/CloonexData"
+cloonex doctor
+cloonex mcp-config --format json
+```
+
+项目、任务、说明、决定、偏好、证据、复核历史和交接文档全部保留原ID与关联。不会覆盖或合并已有知识库；项目源码和 AI 客户端配置另行迁移，项目路径变化后用 `project-move` 重新关联。迁移包有完整性校验，但不加密。[完整迁移说明](docs/migration.md)
+
+升级前暂停相关客户端并备份旧数据目录；新版本会增量升级数据库，原记录保留。升级后不要再用旧程序打开该知识库，客户端环境变量里的数据目录也需要同步核对。
 
 ## 使用流程
 
@@ -116,7 +141,7 @@ begin_task → get_context → (开发) → record_decision / save_checkpoint �
 
 **按需核对，不后台扫描。** 功能说明关联文件指纹，查询或开发时按需比对，代码变化后提示复核。
 
-查询功能和过时检查需要分别调用。文件内容变化（包括仅修改注释）也会触发提示；它不判断语义差异，也不自动改写功能说明。
+0.2.0 的功能查询和任务上下文会按需核对关联文件，同时保留“记录时核对状态”和“当前文件状态”。项目级检查仍可单独调用 `stale_check`。文件内容变化（包括仅修改注释）也会触发提示；它不判断语义差异，也不自动改写功能说明。实际复核后可刷新证据基线；内容变化时显式替代旧说明并保留历史。
 
 **候选偏好不等于约束。** 候选规则可被检索，但不会注入任务上下文；只有已确认的规则才作为约束。
 
@@ -134,6 +159,11 @@ cloonex preferences            # 偏好列表
 cloonex preference-revoke <ID> # 撤销偏好
 cloonex mcp-config --direct    # 输出本地安装的接入配置
 cloonex install-skill          # 安装开发流程技能
+cloonex search "订单导出"     # 联合搜索任务、功能、决定、说明
+cloonex doctor --check-files   # 核对路径、证据与未完成任务
+cloonex project-move <项目ID> <新路径> # 原项目重新关联代码目录
+cloonex rules <项目路径>       # 预览项目规则，确认后加 --apply
+cloonex labels                # 标签与显式别名
 ```
 
 ## 技术选型说明

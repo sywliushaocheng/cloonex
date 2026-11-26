@@ -9,7 +9,7 @@ Cloonex uses the standard MCP SDK and local stdio transport. It does not restric
 Install the prebuilt package directly (Node.js ≥ 20.11 and npm required; no Git or source clone):
 
 ```bash
-npm install --global "https://github.com/sywliushaocheng/cloonex/releases/download/v0.1.0/cloonex-0.1.0.tgz"
+npm install --global "https://github.com/sywliushaocheng/cloonex/releases/download/v0.2.0/cloonex-0.2.0.tgz"
 cloonex init
 cloonex mcp-config --direct
 ```
@@ -26,7 +26,7 @@ npm installs the precompiled tool and its runtime dependencies. `mcp-config --di
 
 Prefer absolute Node and CLI paths for desktop clients, whose PATH may differ from a terminal. On Windows, a global `cloonex` launcher may be a `.cmd` file; launching Node directly avoids depending on the client handling shell wrappers.
 
-`cloonex mcp-config --direct` currently prints **Codex TOML**, but the generated `command`, `args` and environment values are also the values to use in another client's configuration. The configuration envelope and file location depend on the client.
+In 0.2.0, `cloonex mcp-config --format json` generates the JSON envelope below with actual local paths. `--format connection` returns only the transport, command, arguments and environment. The default (and legacy `--direct`) prints **Codex TOML**. No database initialization is needed to generate these values. The configuration envelope and file location still depend on the client.
 
 For a client that uses a `mcpServers` JSON object, the structure is:
 
@@ -73,7 +73,7 @@ Cloonex 是标准 **MCP stdio 服务**，服务端没有 Codex 限制。支持�
 无需 Git 或克隆，准备 Node.js ≥ 20.11 和 npm 后直接安装已编译软件包：
 
 ```bash
-npm install --global "https://github.com/sywliushaocheng/cloonex/releases/download/v0.1.0/cloonex-0.1.0.tgz"
+npm install --global "https://github.com/sywliushaocheng/cloonex/releases/download/v0.2.0/cloonex-0.2.0.tgz"
 cloonex init
 cloonex mcp-config --direct
 ```
@@ -84,7 +84,7 @@ npm 安装已编译程序及其运行依赖，无需本机 TypeScript 编译；�
 - 参数：Cloonex 的 `dist/src/cli.js` 绝对路径，以及 `mcp`。
 - 环境变量：`CLOONEX_DATA_DIR`，指定个人知识库的绝对路径。
 
-执行 `cloonex mcp-config --direct` 可以取得本机真实路径；该命令输出的是 **Codex TOML**，其他客户端需把同样的参数填入自己的配置结构。上文提供了使用 `mcpServers` 的通用 JSON 示例，所有占位路径都要替换；不是所有客户端都使用这个外层结构。
+执行 `cloonex mcp-config --format json` 可以直接生成含本机真实路径的 JSON；`--format connection` 输出原始连接参数。默认格式（含兼容的 `--direct`）仍是 **Codex TOML**。无需初始化数据库即可生成配置；不是所有客户端都使用 `mcpServers` 外层结构，仍需按客户端格式调整。
 
 Claude Desktop、Cursor 等支持本地 stdio MCP 的客户端可作为接入目标，但本项目目前没有逐一实测。应区分“协议与启动参数通用”和“具体客户端已完成兼容验收”。当前已实测应用是 Codex，独立演示还使用了通用 MCP SDK 客户端验证协议流程。
 

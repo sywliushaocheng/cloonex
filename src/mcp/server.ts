@@ -25,13 +25,16 @@ import {
   saveCheckpoint,
   updateTask,
 } from '../domain/task.js';
-import { addDecision, listFeatures, upsertFeature } from '../domain/feature.js';
+import { addDecision, ensureFeature, getFeature, getStatement, getDecision, listFeatures, upsertFeature, supersedeStatement, supersedeDecision, setFeatureAliases } from '../domain/feature.js';
 import { addPreference, listPreferences, revokePreference, setPreferenceStatus, supersedePreference } from '../domain/preference.js';
 import { buildTaskContext, detectStale } from '../domain/context.js';
 import { finalizeTask, reviewStatement } from '../domain/finalize.js';
 import { resolveFeature } from '../domain/feature-query.js';
 import { exportTaskMarkdown } from '../export/markdown.js';
 import * as S from './schemas.js';
+import { VERSION } from '../version.js';
+import { searchRecords } from '../domain/search.js';
+import { projectHealth } from '../domain/health.js';
 
 /**
  * Cloonex MCP server (product doc §11.2).
@@ -63,11 +66,11 @@ function requireTask(taskId: string) {
 }
 
 function requireFeature(projectId: string, slug: string) {
-  return upsertFeature(db, { projectId, slug, title: slug });
+  return ensureFeature(db, projectId, slug);
 }
 
 const server = new McpServer(
-  { name: 'cloonex', version: '0.1.0' },
+  { name: 'cloonex', version: VERSION },
   {
     instructions: [
       'Cloonex 保存用户的开发意图、项目约定、关键决定与功能档案，使其独立于具体模型。',
@@ -264,6 +267,8 @@ server.registerTool(
       });
       return json({
         decision,
+        warnings: args.reasonSource !== 'unknown' && !args.evidence?.length
+          ? ['理由来源已有标注，但没有关联引用；方便时补充最小来源证据，不要编造理由。'] : [],
         note: decision.reason ? undefined : '未记录理由：后续查询时会显示为未知，不会推测。',
       });
     } catch (error) {
@@ -281,47 +286,49 @@ server.registerTool(
   },
   async (args) => {
     try {
-      const task = requireTask(args.taskId);
-      if (args.statements && args.statements.length > 0) assertCanWriteFeatureStatements(task);
+      return db.transaction(() => {
+        const task = requireTask(args.taskId);
+        if (args.statements && args.statements.length > 0) assertCanWriteFeatureStatements(task);
+        if (args.feature) assertCanWriteFeatureStatements(task);
+        if (task.status === 'done' || task.status === 'abandoned') throw new Error('任务已完成或放弃，不能重复结束。');
 
-      const featureIds = new Map<string, string>();
-      const featureIdFor = (slug: string): string => {
-        const cached = featureIds.get(slug);
-        if (cached) return cached;
-        const feature = requireFeature(task.projectId, slug);
-        featureIds.set(slug, feature.id);
-        return feature.id;
-      };
+        const featureIds = new Map<string, string>();
+        const featureIdFor = (slug: string): string => {
+          const cached = featureIds.get(slug);
+          if (cached) return cached;
+          const feature = requireFeature(task.projectId, slug);
+          featureIds.set(slug, feature.id);
+          return feature.id;
+        };
 
-      const statements = (args.statements ?? []).map((statement) => ({
-        featureId: featureIdFor(statement.featureSlug),
-        section: statement.section,
-        content: statement.content,
-        relativePaths: statement.relativePaths,
-      }));
+        const statements = (args.statements ?? []).map((statement) => ({
+          featureId: featureIdFor(statement.featureSlug),
+          section: statement.section,
+          content: statement.content,
+          relativePaths: statement.relativePaths,
+          topicKey: statement.topicKey,
+        }));
 
-      if (args.feature) {
-        upsertFeature(db, {
-          projectId: task.projectId,
-          slug: args.feature.slug,
-          title: args.feature.title,
-          purpose: args.feature.purpose,
-          boundary: args.feature.boundary,
-        });
-      }
+        if (args.feature) {
+          upsertFeature(db, {
+            projectId: task.projectId,
+            slug: args.feature.slug,
+            title: args.feature.title,
+            purpose: args.feature.purpose,
+            boundary: args.feature.boundary,
+          });
+        }
 
-      const result = finalizeTask(db, {
-        task,
-        outcome: args.outcome,
-        verification: args.verification,
-        statements,
+        const result = finalizeTask(db, {
+          task,
+          outcome: args.outcome,
+          verification: args.verification,
+          statements,
+          knowledgeMode: args.knowledgeMode,
       });
-      const updated = updateTask(db, task.id, {
-        status: 'done',
-        outcome: args.outcome,
-        verification: args.verification,
-      });
+      const updated = getTask(db, task.id);
       return json({ task: updated, result });
+      });
     } catch (error) {
       return failure(error);
     }
@@ -354,7 +361,7 @@ server.registerTool(
         dossier: resolution.dossier,
         ambiguous: resolution.ambiguous.map((hit) => ({ slug: hit.feature.slug, title: hit.feature.title, score: hit.score })),
         caution:
-          resolution.dossier.statements.some((s) => s.reviewState !== 'verified')
+          resolution.dossier.statements.some((s) => s.reviewState !== 'verified' || s.freshness.status === 'untracked')
             ? '部分说明尚未核对或已标记待复核，请结合当前代码确认后再作为事实使用。'
             : undefined,
       });
@@ -373,13 +380,84 @@ server.registerTool(
   },
   async (args) => {
     try {
-      reviewStatement(db, args.statementId, args.reviewState);
+      reviewStatement(db, args.statementId, args.reviewState, args.relativePaths, args.note);
       return json({ statementId: args.statementId, reviewState: args.reviewState, reviewedAt: nowIso() });
     } catch (error) {
       return failure(error);
     }
   },
 );
+
+server.registerTool('supersede_statement', {
+  title: '替代旧功能说明', description: '在同一项目的允许任务中显式替代当前说明，保留历史与证据。', inputSchema: S.supersedeStatementSchema,
+}, async (args) => {
+  try {
+    return db.transaction(() => {
+      const task = requireTask(args.taskId);
+      assertCanWriteFeatureStatements(task);
+      const previous = getStatement(db, args.statementId);
+      if (!previous || getFeature(db, previous.featureId)?.projectId !== task.projectId) throw new Error('说明不属于当前任务项目。');
+      const statement = supersedeStatement(db, { ...args, reviewState: 'unknown' });
+      if (args.reviewState === 'verified') {
+        const paths = args.relativePaths ?? previous.evidence.filter((e) => e.fingerprint && e.relativePath).map((e) => e.relativePath!);
+        reviewStatement(db, statement.id, 'verified', paths, args.note);
+      } else reviewStatement(db, statement.id, args.reviewState, undefined, args.note);
+      return json({ statement: getStatement(db, statement.id), replaced: previous.id });
+    });
+  } catch (error) { return failure(error); }
+});
+
+server.registerTool('supersede_decision', {
+  title: '替代旧决定', description: '显式记录新决定及真实理由，旧决定保留为历史。', inputSchema: S.supersedeDecisionSchema,
+}, async (args) => {
+  try {
+    return db.transaction(() => {
+      const task = requireTask(args.taskId);
+      assertCanWriteDecisions(task);
+      const previous = getDecision(db, args.decisionId);
+      if (!previous || previous.projectId !== task.projectId || previous.status !== 'active') throw new Error('只能替代本项目的当前决定。');
+      return json({ decision: supersedeDecision(db, previous.id, { projectId: task.projectId, featureId: previous.featureId,
+        taskId: task.id, title: args.title, choice: args.choice, reason: args.reason, reasonSource: args.reasonSource,
+        consequence: args.consequence }) });
+    });
+  } catch (error) { return failure(error); }
+});
+
+server.registerTool('search_records', {
+  title: '联合检索历史记录', description: '按中文词语或关键词检索任务结果、功能说明和决定，返回命中字段。', inputSchema: S.searchRecordsSchema,
+}, async (args) => {
+  try {
+    const project = args.projectRoot ? findProjectByPath(db, args.projectRoot) : null;
+    if (args.projectRoot && !project) throw new Error('项目未注册。');
+    return json({ results: searchRecords(db, args.query, { projectId: project?.id, group: args.group, limit: args.limit }) });
+  } catch (error) { return failure(error); }
+});
+
+server.registerTool('update_feature', {
+  title: '显式更新功能名称与别名', description: '按用户核对的名称修改功能元信息；查找不会自动修改展示标题。', inputSchema: S.updateFeatureSchema,
+}, async (args) => {
+  try {
+    return db.transaction(() => {
+      const task = requireTask(args.taskId);
+      assertCanWriteFeatureStatements(task);
+      const feature = requireFeature(task.projectId, args.featureSlug);
+      const updated = upsertFeature(db, { projectId: task.projectId, slug: feature.slug, title: args.title ?? feature.title,
+        purpose: args.purpose, boundary: args.boundary });
+      if (args.aliases) setFeatureAliases(db, feature.id, args.aliases);
+      return json({ feature: getFeature(db, updated.id) });
+    });
+  } catch (error) { return failure(error); }
+});
+
+server.registerTool('project_health', {
+  title: '项目健康检查', description: '只读查看路径、待续接任务和知识关联；可选择核对文件证据。', inputSchema: S.healthSchema,
+}, async (args) => {
+  try {
+    const project = args.projectRoot ? findProjectByPath(db, args.projectRoot) : null;
+    if (args.projectRoot && !project) throw new Error('项目未注册。');
+    return json(projectHealth(db, project?.id, args.checkFiles));
+  } catch (error) { return failure(error); }
+});
 
 server.registerTool(
   'stale_check',

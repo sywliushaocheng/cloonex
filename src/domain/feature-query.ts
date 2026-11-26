@@ -1,6 +1,8 @@
 import type { Db } from '../db/database.js';
 import { getFeature, listDecisions, listFeatures, type DecisionView, type FeatureView } from './feature.js';
 import { evidenceFor, toEvidenceRef } from './evidence.js';
+import { statementFreshness, type Freshness } from './freshness.js';
+import { searchTerms } from './search.js';
 
 /**
  * Feature lookup for "what does this do, and why" questions (product doc §6.3).
@@ -26,11 +28,7 @@ function score(text: string, terms: string[]): number {
 }
 
 export function searchFeatures(db: Db, projectId: string, query: string): FeatureHit[] {
-  const terms = query
-    .toLowerCase()
-    .split(/[\s,，。；;、]+/)
-    .map((t) => t.trim())
-    .filter((t) => t.length > 0);
+  const terms = searchTerms(query);
   if (terms.length === 0) return [];
 
   const hits: FeatureHit[] = [];
@@ -39,7 +37,7 @@ export function searchFeatures(db: Db, projectId: string, query: string): Featur
       "SELECT section, content FROM feature_statement WHERE feature_id = ? AND state = 'current'",
       [feature.id],
     );
-    let best = score(`${feature.slug} ${feature.title}`, terms) * 3;
+    let best = score(`${feature.slug} ${feature.title} ${feature.aliases.join(' ')}`, terms) * 3;
     const matched = new Set<string>();
     for (const statement of statements) {
       const sectionScore = score(String(statement.content), terms);
@@ -47,6 +45,9 @@ export function searchFeatures(db: Db, projectId: string, query: string): Featur
         best += sectionScore;
         matched.add(String(statement.section));
       }
+    }
+    for (const decision of listDecisions(db, feature.id)) {
+      best += score(`${decision.title} ${decision.choice} ${decision.reason ?? ''}`, terms);
     }
     if (best > 0) hits.push({ feature, score: best, matchedSections: [...matched] });
   }
@@ -61,10 +62,13 @@ export interface FeatureDossier {
     content: string;
     reviewState: string;
     reviewedAt: string | null;
+    recordedReviewState: string;
+    freshness: Freshness;
     evidence: ReturnType<typeof toEvidenceRef>[];
   }>;
   decisions: DecisionView[];
   history: Array<{ section: string; content: string; supersededBy: string | null; createdAt: string }>;
+  reviews: Array<Record<string, unknown>>;
 }
 
 /**
@@ -87,16 +91,23 @@ export function featureDossier(db: Db, featureId: string, includeHistory = false
       )
     : [];
 
+  const cache = new Map<string, string | null>();
   return {
     feature,
-    statements: statements.map((row) => ({
+    statements: statements.map((row) => {
+      const freshness = statementFreshness(db, String(row.id), cache);
+      return ({
       id: String(row.id),
       section: String(row.section),
       content: String(row.content),
-      reviewState: String(row.review_state),
+      reviewState: ['unchanged', 'untracked'].includes(freshness.status) ? String(row.review_state) : 'stale',
+      recordedReviewState: String(row.review_state),
+      freshness,
       reviewedAt: (row.reviewed_at as string | null) ?? null,
       evidence: evidenceFor(db, 'statement_evidence', 'statement_id', String(row.id)).map(toEvidenceRef),
-    })),
+    }); }),
+    reviews: includeHistory ? db.all(`SELECT r.* FROM statement_review r JOIN feature_statement s ON r.statement_id=s.id
+      WHERE s.feature_id=? ORDER BY r.created_at DESC`, [featureId]) : [],
     decisions: listDecisions(db, featureId, includeHistory),
     history: historyRows.map((row) => ({
       section: String(row.section),

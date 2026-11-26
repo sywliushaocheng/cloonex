@@ -66,6 +66,11 @@ describe('Cloonex MCP server', () => {
       'stale_check',
       'export_context',
       'data_info',
+      'supersede_statement',
+      'supersede_decision',
+      'search_records',
+      'project_health',
+      'update_feature',
     ]) {
       assert.ok(names.includes(expected), `missing tool: ${expected}`);
     }
@@ -230,4 +235,38 @@ describe('Cloonex MCP server', () => {
     assert.ok(info.counts.projects >= 1);
     assert.ok(info.counts.decisions >= 1);
   });
+  test('new MCP lifecycle preserves names, checks freshness, refreshes reviews and replaces historical records', async () => {
+    const begun = await call('begin_task', { projectRoot, title: 'Versioned feature', taskType: 'feature', featureSlug: 'versioned-export', stack: ['vue3','typescript'] });
+    const taskId = begun.task.id;
+    const named = await call('update_feature', { taskId, featureSlug: 'versioned-export', title: '跨会话导出', aliases: ['下载订单'] });
+    assert.equal(named.feature.title, '跨会话导出');
+    const decision = await call('record_decision', { taskId, featureSlug: 'versioned-export', title: '数据范围', choice: '当前页', reasonSource: 'unknown' });
+    const finalized = await call('finalize_task', { taskId, statements: [{ featureSlug: 'versioned-export', section: 'implementation', topicKey: 'export-scope', content: '导出当前页', relativePaths: ['src/export.ts'] }] });
+    assert.equal(finalized.task.featureId, named.feature.id);
+    const statementId = finalized.result.statements[0].id;
+    let queried = await call('query_feature', { projectRoot, query: 'versioned-export' });
+    assert.equal(queried.dossier.feature.title, '跨会话导出');
+    fs.appendFileSync(path.join(projectRoot, 'src/export.ts'), '// MCP re-review\n');
+    queried = await call('query_feature', { projectRoot, query: 'versioned-export' });
+    assert.equal(queried.dossier.statements[0].reviewState, 'stale');
+    assert.equal(queried.dossier.statements[0].freshness.status, 'changed');
+    await call('review_statement', { statementId, reviewState: 'verified', note: 'Manually checked the sample source.' });
+    queried = await call('query_feature', { projectRoot, query: 'versioned-export', includeHistory: true });
+    assert.equal(queried.dossier.statements[0].freshness.status, 'unchanged');
+    assert.equal(queried.dossier.reviews.length, 1);
+    const next = await call('begin_task', { projectRoot, title: 'New scope', taskType: 'refactor', featureSlug: 'versioned-export' });
+    const replacement = await call('supersede_statement', { taskId: next.task.id, statementId, content: '当前页并包含编号', reviewState: 'verified', note: 'New checked fixture behavior', relativePaths: ['src/export.ts'] });
+    assert.equal(replacement.statement.topicKey, 'export-scope');
+    await call('supersede_decision', { taskId: next.task.id, decisionId: decision.decision.id, title: '数据范围', choice: '当前页及编号', reasonSource: 'unknown' });
+    queried = await call('query_feature', { projectRoot, query: 'versioned-export', includeHistory: true });
+    assert.equal(queried.dossier.history.length, 1);
+    assert.ok(queried.dossier.decisions.some((item: any) => item.status === 'superseded'));
+    assert.equal((await call('search_records', { projectRoot, query: '下载订单' })).results[0].type, 'feature');
+    const bug = await call('begin_task', { projectRoot, title: 'Bug', taskType: 'bugfix' });
+    assert.ok((await call('supersede_statement', { taskId: bug.task.id, statementId: replacement.statement.id, content: 'blocked', note: 'must reject' })).error);
+    assert.ok((await call('finalize_task', { taskId: bug.task.id, feature: { slug: 'forbidden', title: 'forbidden' } })).error);
+    assert.ok((await call('project_health', { projectRoot, checkFiles: true })).projects[0].pathExists);
+  });
+
+
 });

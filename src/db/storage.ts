@@ -3,6 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { Db } from './database.js';
 import { SCHEMA_SQL } from './schema.js';
+import { DATABASE_VERSION } from '../version.js';
 
 /**
  * Data location rules (product doc §10.2):
@@ -73,18 +74,28 @@ export interface OpenOptions {
 
 export function openDb(options: OpenOptions = {}): Db {
   const paths = resolvePaths(options.dataDir);
+  if (fs.existsSync(path.join(paths.dataDir, '.cloonex-import.lock'))) throw new Error('该数据目录正在导入，请稍后重试。');
   if (options.mustExist && !fs.existsSync(paths.dbFile)) {
     throw new Error(`Cloonex data not found at ${paths.dbFile}. Run "cloonex init" first.`);
   }
   fs.mkdirSync(paths.dataDir, { recursive: true });
   const db = new Db(paths.dbFile);
-  db.exec(SCHEMA_SQL);
-  migrate(db);
-  db.run(
-    `INSERT INTO meta (key, value) VALUES ('schema_version', '2')
-     ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
-  );
-  return db;
+  try {
+    const hasMeta = db.get("SELECT name FROM sqlite_master WHERE type='table' AND name='meta'");
+    const oldVersion = hasMeta ? Number(db.get("SELECT value FROM meta WHERE key='schema_version'")?.value ?? 0) : 0;
+    if (oldVersion > DATABASE_VERSION) throw new Error('数据库来自更新的 Cloonex 版本，请先升级程序。');
+    db.transaction(() => {
+      db.exec(SCHEMA_SQL);
+      migrate(db);
+      db.run(`INSERT OR IGNORE INTO task_feature(task_id,feature_id)
+        SELECT t.id,t.feature_id FROM task t JOIN feature f ON f.id=t.feature_id AND f.project_id=t.project_id`);
+      if (oldVersion !== DATABASE_VERSION) db.run(
+        `INSERT INTO meta (key,value) VALUES ('schema_version',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value`,
+        [String(DATABASE_VERSION)],
+      );
+    });
+    return db;
+  } catch (error) { db.close(); throw error; }
 }
 
 /**
@@ -98,6 +109,9 @@ function migrate(db: Db): void {
   const additions: Array<{ table: string; column: string; definition: string }> = [
     { table: 'task', column: 'stack', definition: 'TEXT' },
     { table: 'task', column: 'scene', definition: 'TEXT' },
+    { table: 'feature_statement', column: 'topic_key', definition: 'TEXT' },
+    { table: 'project_convention', column: 'relative_path', definition: 'TEXT' },
+    { table: 'project_convention', column: 'fingerprint', definition: 'TEXT' },
   ];
 
   for (const { table, column, definition } of additions) {

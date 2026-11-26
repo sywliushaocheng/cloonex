@@ -3,11 +3,13 @@ import { newId, nowIso } from '../db/util.js';
 import { learningPolicy, learningStateFor, parseTaskType, type LearningPolicy } from './policy.js';
 import { refreshProjectTimestamp } from './project.js';
 import type { LearningState, TaskStatus, TaskType } from './types.js';
+import { storeStack } from './labels.js';
 
 export interface TaskView {
   id: string;
   projectId: string;
   featureId: string | null;
+  featureIds: string[];
   title: string;
   taskType: TaskType;
   learningState: LearningState;
@@ -27,12 +29,14 @@ export interface TaskView {
   policy: LearningPolicy;
 }
 
-function toTaskView(row: Record<string, unknown>): TaskView {
+function toTaskView(row: Record<string, unknown>, db: Db): TaskView {
   const taskType = row.task_type as TaskType;
   return {
     id: String(row.id),
     projectId: String(row.project_id),
     featureId: (row.feature_id as string | null) ?? null,
+    featureIds: [...new Set([...(row.feature_id ? [String(row.feature_id)] : []),
+      ...db.all('SELECT feature_id FROM task_feature WHERE task_id=?', [String(row.id)]).map((r) => String(r.feature_id))])],
     title: String(row.title),
     taskType,
     learningState: row.learning_state as LearningState,
@@ -63,11 +67,14 @@ export interface BeginTaskInput {
   outOfScope?: string | null;
   constraints?: string | null;
   doneCriteria?: string | null;
-  stack?: string | null;
+  stack?: string | string[] | null;
   scene?: string | null;
 }
 
 export function beginTask(db: Db, input: BeginTaskInput): TaskView {
+  if (input.featureId && db.get('SELECT project_id FROM feature WHERE id=?', [input.featureId])?.project_id !== input.projectId) {
+    throw new Error('任务和功能必须属于同一项目。');
+  }
   const taskType = parseTaskType(input.taskType);
   const id = newId('task');
   const timestamp = nowIso();
@@ -88,19 +95,20 @@ export function beginTask(db: Db, input: BeginTaskInput): TaskView {
       input.outOfScope ?? null,
       input.constraints ?? null,
       input.doneCriteria ?? null,
-      input.stack ?? null,
+      storeStack(input.stack),
       input.scene ?? null,
       timestamp,
       timestamp,
     ],
   );
   refreshProjectTimestamp(db, input.projectId);
+  if (input.featureId) linkTaskFeature(db, id, input.featureId);
   return getTask(db, id)!;
 }
 
 export function getTask(db: Db, taskId: string): TaskView | null {
   const row = db.get('SELECT * FROM task WHERE id = ?', [taskId]);
-  return row ? toTaskView(row) : null;
+  return row ? toTaskView(row, db) : null;
 }
 
 export function findOpenTasks(db: Db, projectId: string): TaskView[] {
@@ -109,13 +117,13 @@ export function findOpenTasks(db: Db, projectId: string): TaskView[] {
       "SELECT * FROM task WHERE project_id = ? AND status IN ('open','blocked') ORDER BY updated_at DESC",
       [projectId],
     )
-    .map(toTaskView);
+    .map((row) => toTaskView(row, db));
 }
 
 export function listTasks(db: Db, projectId: string, limit = 20): TaskView[] {
   return db
     .all('SELECT * FROM task WHERE project_id = ? ORDER BY updated_at DESC LIMIT ?', [projectId, limit])
-    .map(toTaskView);
+    .map((row) => toTaskView(row, db));
 }
 
 export interface UpdateTaskInput {
@@ -129,13 +137,16 @@ export interface UpdateTaskInput {
   verification?: string;
   taskType?: string;
   featureId?: string | null;
-  stack?: string | null;
+  stack?: string | string[] | null;
   scene?: string | null;
 }
 
 export function updateTask(db: Db, taskId: string, input: UpdateTaskInput): TaskView {
   const current = getTask(db, taskId);
   if (!current) throw new Error(`Unknown task: ${taskId}`);
+  if (input.featureId && db.get('SELECT project_id FROM feature WHERE id=?', [input.featureId])?.project_id !== current.projectId) {
+    throw new Error('任务和功能必须属于同一项目。');
+  }
   const taskType = input.taskType ? parseTaskType(input.taskType) : current.taskType;
   const timestamp = nowIso();
   const status = input.status ?? current.status;
@@ -156,7 +167,7 @@ export function updateTask(db: Db, taskId: string, input: UpdateTaskInput): Task
       input.outOfScope ?? current.outOfScope,
       input.constraints ?? current.constraints,
       input.doneCriteria ?? current.doneCriteria,
-      input.stack !== undefined ? input.stack : current.stack,
+      input.stack !== undefined ? storeStack(input.stack) : current.stack,
       input.scene !== undefined ? input.scene : current.scene,
       status,
       input.outcome ?? current.outcome,
@@ -167,7 +178,16 @@ export function updateTask(db: Db, taskId: string, input: UpdateTaskInput): Task
     ],
   );
   refreshProjectTimestamp(db, current.projectId);
+  if (input.featureId) linkTaskFeature(db, taskId, input.featureId);
   return getTask(db, taskId)!;
+}
+
+export function linkTaskFeature(db: Db, taskId: string, featureId: string): void {
+  const task = db.get('SELECT project_id FROM task WHERE id=?', [taskId]);
+  const feature = db.get('SELECT project_id FROM feature WHERE id=?', [featureId]);
+  if (!task || !feature || task.project_id !== feature.project_id) throw new Error('任务和功能必须属于同一项目。');
+  db.run('INSERT OR IGNORE INTO task_feature(task_id,feature_id) VALUES(?,?)', [taskId, featureId]);
+  db.run('UPDATE task SET feature_id=COALESCE(feature_id,?) WHERE id=?', [featureId, taskId]);
 }
 
 /**

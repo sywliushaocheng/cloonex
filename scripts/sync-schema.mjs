@@ -7,7 +7,7 @@ const out = [
   '',
   'export const SCHEMA_SQL = `' + esc + '`;',
   '',
-  'export const SCHEMA_VERSION = 1;',
+  'export const SCHEMA_VERSION = 3;',
   '',
 ].join('\n');
 fs.writeFileSync('src/db/schema.ts', out, 'utf8');

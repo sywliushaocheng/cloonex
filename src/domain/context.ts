@@ -7,6 +7,7 @@ import { evidenceFor } from './evidence.js';
 import { countUnresolvedScopedPreferences, queryPreferences } from './preference.js';
 import { listConventions, getProject } from './project.js';
 import type { TaskView } from './task.js';
+import { statementFreshness } from './freshness.js';
 
 /**
  * Context assembly (product doc §9.1).
@@ -69,6 +70,13 @@ export function buildTaskContext(db: Db, task: TaskView, budget: ContextBudget =
   // 1. Project conventions
   const conventionSection: ContextSection = { title: '项目约定', items: [], omitted: 0 };
   for (const convention of listConventions(db, task.projectId)) {
+    if (convention.relative_path && convention.fingerprint) {
+      const absolute = resolveInsideProject(project.rootPath, convention.relative_path);
+      if (!absolute || fingerprintFile(absolute) !== convention.fingerprint) {
+        warnings.push(`项目规则来源已变化或缺失，请复核：${convention.relative_path}`);
+        continue;
+      }
+    }
     push(conventionSection, `[${convention.category}] ${convention.content}`, meter);
   }
   sections.push(conventionSection);
@@ -82,6 +90,7 @@ export function buildTaskContext(db: Db, task: TaskView, budget: ContextBudget =
     projectId: task.projectId,
     stack: task.stack,
     scene: task.scene,
+    statuses: ['confirmed'],
   })) {
     if (preference.status === 'candidate') continue; // unconfirmed rules are not constraints
     const target = preference.scene ?? preference.stack ?? '';
@@ -110,8 +119,10 @@ export function buildTaskContext(db: Db, task: TaskView, budget: ContextBudget =
 
   // 3. The feature under work, with stale flags surfaced rather than hidden.
   const featureSection: ContextSection = { title: '关联功能', items: [], omitted: 0 };
-  if (task.featureId) {
-    const feature = getFeature(db, task.featureId);
+  const featureIds = task.featureIds ?? (task.featureId ? [task.featureId] : []);
+  const fileCache = new Map<string, string | null>();
+  for (const featureId of featureIds) {
+    const feature = getFeature(db, featureId);
     if (feature) {
       push(featureSection, `${feature.title}（${feature.slug}）`, meter);
       if (feature.purpose) push(featureSection, `目的：${feature.purpose}`, meter);
@@ -121,9 +132,12 @@ export function buildTaskContext(db: Db, task: TaskView, budget: ContextBudget =
         [feature.id],
       );
       for (const statement of statements) {
-        const stale = statement.review_state !== 'verified' ? `（${statement.review_state}）` : '';
+        const freshness = statementFreshness(db, String(statement.id), fileCache);
+        const changed = !['unchanged', 'untracked'].includes(freshness.status);
+        const state = changed ? 'stale' : statement.review_state;
+        const stale = `（记录核对：${statement.review_state}；当前文件：${freshness.status}）`;
         push(featureSection, `[${statement.section}]${stale} ${statement.content}`, meter);
-        if (statement.review_state === 'stale') {
+        if (state === 'stale') {
           warnings.push(`功能说明可能已过时，需核对代码：${String(statement.content).slice(0, 60)}`);
         }
       }
@@ -133,8 +147,8 @@ export function buildTaskContext(db: Db, task: TaskView, budget: ContextBudget =
 
   // 4. Active decisions: why the current shape exists.
   const decisionSection: ContextSection = { title: '关键决定', items: [], omitted: 0 };
-  if (task.featureId) {
-    for (const decision of listDecisions(db, task.featureId)) {
+  for (const featureId of featureIds) {
+    for (const decision of listDecisions(db, featureId)) {
       const reason = decision.reason ? `｜理由（${decision.reasonSource}）：${decision.reason}` : '｜理由：未知';
       push(decisionSection, `${decision.title}：${decision.choice}${reason}`, meter);
     }

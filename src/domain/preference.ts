@@ -1,4 +1,5 @@
 import type { Db } from '../db/database.js';
+import { canonicalLabel, stackLabels } from './labels.js';
 import { newId, nowIso } from '../db/util.js';
 import { addEvidence, evidenceFor, linkEvidence, toEvidenceRef, type EvidenceRef } from './evidence.js';
 import type { EvidenceKind, PreferenceScope, PreferenceStatus } from './types.js';
@@ -143,6 +144,7 @@ export interface PreferenceQuery {
  */
 export function queryPreferences(db: Db, query: PreferenceQuery = {}): PreferenceView[] {
   const statuses = query.statuses ?? ['confirmed', 'candidate'];
+  if (!statuses.length) return [];
   const placeholders = statuses.map(() => '?').join(',');
   const clauses: string[] = [`status IN (${placeholders})`];
   const params: Array<string | number> = [...statuses];
@@ -151,20 +153,8 @@ export function queryPreferences(db: Db, query: PreferenceQuery = {}): Preferenc
   // scope it was recorded for. Each clause therefore pins BOTH the scope value
   // and its target, so a project-wide rule cannot leak into a specific scene
   // and a scene rule cannot leak into a different scene.
-  const scopeClauses: string[] = ["scope = 'global'"];
-  if (query.projectId) {
-    scopeClauses.push("(scope = 'project' AND project_id = ?)");
-    params.push(query.projectId);
-  }
-  if (query.stack) {
-    scopeClauses.push("(scope = 'stack' AND stack = ?)");
-    params.push(query.stack);
-  }
-  if (query.scene) {
-    scopeClauses.push("(scope = 'scene' AND scene = ?)");
-    params.push(query.scene);
-  }
-  clauses.push(`(${scopeClauses.join(' OR ')})`);
+  clauses.push("(scope = 'global' OR project_id IS NULL OR project_id = ?)");
+  params.push(query.projectId ?? '');
   clauses.push('(expires_at IS NULL OR expires_at > ?)');
   params.push(nowIso());
 
@@ -172,10 +162,18 @@ export function queryPreferences(db: Db, query: PreferenceQuery = {}): Preferenc
   const rows = db.all(
     `SELECT * FROM preference WHERE ${clauses.join(' AND ')}
       ORDER BY CASE status WHEN 'confirmed' THEN 0 ELSE 1 END, strength DESC, updated_at DESC
-      LIMIT ?`,
-    [...params, limit],
+      `,
+    params,
   );
-  return rows.map((row) => toPreference(db, row));
+  return rows.map((row) => toPreference(db, row)).filter((preference) => {
+    if (preference.scope === 'global') return true;
+    if (preference.scope === 'project') return Boolean(query.projectId && preference.projectId === query.projectId);
+    const kind = preference.scope;
+    const requested = kind === 'scene' ? query.scene : query.stack;
+    const stored = kind === 'scene' ? preference.scene : preference.stack;
+    return Boolean(requested && stored && (kind === 'stack' ? stackLabels(requested) : [requested])
+      .some((label) => canonicalLabel(db, kind, label) === canonicalLabel(db, kind, stored)));
+  }).slice(0, limit);
 }
 
 /**

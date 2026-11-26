@@ -34,6 +34,8 @@ description: 在接入 Cloonex MCP 的项目中开发新功能、重构、修复
    - `statements` 只写**已经核对过**的功能说明。
    - `relativePaths` 指向支撑该说明的代码文件，Cloonex 会记录指纹用于过时检测。
    - 未执行的检查不要写进 `verification`。
+   - 0.2.0 会自动关联本次说明涉及的功能，并在同一事务关闭任务。文档/发布等确实只需总结的任务可指定 `knowledgeMode: summary`；不能同时提交功能说明。
+   - 稳定主题可填 `topicKey`；同主题的内容变化应调用 `supersede_statement`，不要把新旧内容都追加为当前说明。
 6. **沉淀偏好**：从允许学习的任务调用 `propose_preference`。
    - 默认写入 `candidate`；只有用户明确要求长期采用才用 `confirm: true`。
    - 区分个人偏好、项目规范、业务约束，不要把项目要求写成个人习惯。
@@ -62,12 +64,22 @@ description: 在接入 Cloonex MCP 的项目中开发新功能、重构、修复
 用户问“这个功能当初为什么这么做”时：
 
 1. 调用 `query_feature`，必要时 `includeHistory: true`。
-2. 先看 `stale_check` 结果：关联代码变过就必须以当前代码为准。
+2. 查看返回的 `freshness` 和 `recordedReviewState`：0.2.0 会核对本次命中说明的文件；关联代码变过就必须以当前代码为准。项目范围复核可再调用 `stale_check`。
 3. 明确区分三类信息：
    - **当前实现**：核对过的代码行为。
    - **历史决定**：记录下来的选择，可能已被替代。
    - **未知**：没有证据的原因。**不要补写历史动机。**
 4. 代码与记录不一致时，说明差异并更新记录，不要假装一致。
+
+0.2.0 的 `review_statement(verified)` 会刷新实际核对文件的证据基线，并保留之前的复核与指纹历史。仅在真正重新核对后使用。内容发生变化时，用允许类型的任务调用 `supersede_statement` / `supersede_decision` 显式替代旧记录。
+
+功能中文名和别名使用 `update_feature` 显式维护，查找本身不会修改标题。找不到功能记录时，可通过 `search_records` 联合检索任务总结、决定和功能说明。`stack` 可使用字符串数组；标签别名需要用户或项目规范明确后再建立，不自动合并不同场景。
+
+## 本地迁移与诊断
+
+安装后的 CLI 支持 `backup export`、`backup inspect`、`backup import`。跨电脑迁移导入到新数据目录，保留历史ID，不能覆盖或合并已有库。迁移包包含私人记录，不能上传公开仓库。项目源码另行迁移，使用 `project-move` 更新路径；`doctor` 查看待续接任务和证据状态。
+
+`rules <项目> --file AGENTS.md` 默认仅预览，明确适用后再加 `--apply` 接入项目约定。来源变化会提示复核，不自动采纳变更。
 
 ## 硬性边界
 

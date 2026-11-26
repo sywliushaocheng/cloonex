@@ -35,7 +35,7 @@ The GIF and static poster are rendered from this transcript with `python scripts
 
 The requirements in [examples/order-export](../examples/order-export) are a fictional source document. The demo records the reason as `external_doc`; it does not pretend that an actual user expressed it. The checked-in [transcript](assets/demo-transcript.json) contains selected results without machine paths or task IDs.
 
-The source edit deliberately changes only a comment. This illustrates an important limitation: fingerprints detect file changes, not semantic differences. `stale_check` reports the need for review; it does not automatically update the explanation or prove the code is wrong. Feature lookup and stale checking are separate calls.
+The source edit deliberately changes only a comment. Fingerprints detect file changes, not semantic differences. In 0.2.0, feature lookup automatically checks the linked evidence; `stale_check` additionally provides a project-wide report. Neither automatically updates the explanation or proves the code is wrong.
 
 ## Try the workflow in Codex
 

@@ -10,9 +10,10 @@ Use Node.js 20.11 or newer and npm. Windows is the currently documented local va
 npm ci
 npm run verify
 npm run demo
+npm run test:install
 ```
 
-`npm ci` runs `prepare` and builds the TypeScript source. The demo uses a temporary database and does not modify your personal knowledge base. Check `npm pack --dry-run` if your change affects package contents.
+`npm ci` runs `prepare` and builds the TypeScript source. The demo uses a temporary database and does not modify your personal knowledge base. `test:install` packs and installs the actual product in an isolated prefix, verifies CLI/MCP and restores a backup into a fresh directory. It may fetch runtime dependencies. Never use a real private archive as a committed fixture or release asset.
 
 ## Before opening a pull request
 

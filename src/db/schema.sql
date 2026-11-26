@@ -23,6 +23,8 @@ CREATE TABLE IF NOT EXISTS project_convention (
   category    TEXT NOT NULL,
   content     TEXT NOT NULL,
   source      TEXT NOT NULL,
+  relative_path TEXT,
+  fingerprint TEXT,
   status      TEXT NOT NULL,
   created_at  TEXT NOT NULL,
   updated_at  TEXT NOT NULL
@@ -70,6 +72,7 @@ CREATE TABLE IF NOT EXISTS feature_statement (
   feature_id     TEXT NOT NULL REFERENCES feature(id) ON DELETE CASCADE,
   section        TEXT NOT NULL,
   content        TEXT NOT NULL,
+  topic_key      TEXT,
   state          TEXT NOT NULL,
   review_state   TEXT NOT NULL,
   reviewed_at    TEXT,
@@ -194,3 +197,41 @@ CREATE TABLE IF NOT EXISTS task_code_state (
 );
 CREATE INDEX IF NOT EXISTS idx_code_state_project
   ON task_code_state(project_id, relative_path);
+
+-- Additional links preserve tasks spanning several features.
+CREATE TABLE IF NOT EXISTS task_feature (
+  task_id TEXT NOT NULL REFERENCES task(id) ON DELETE CASCADE,
+  feature_id TEXT NOT NULL REFERENCES feature(id) ON DELETE CASCADE,
+  PRIMARY KEY (task_id, feature_id)
+);
+
+-- Evidence snapshots are immutable, including after a verified re-review.
+CREATE TABLE IF NOT EXISTS statement_review (
+  id TEXT PRIMARY KEY,
+  statement_id TEXT NOT NULL REFERENCES feature_statement(id) ON DELETE CASCADE,
+  review_state TEXT NOT NULL,
+  reviewed_at TEXT,
+  evidence_json TEXT NOT NULL,
+  note TEXT,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_review_statement ON statement_review(statement_id, created_at);
+
+CREATE TABLE IF NOT EXISTS label_alias (
+  kind TEXT NOT NULL CHECK (kind IN ('scene','stack')),
+  alias TEXT NOT NULL,
+  canonical TEXT NOT NULL,
+  PRIMARY KEY (kind, alias)
+);
+
+CREATE TABLE IF NOT EXISTS project_group (
+  name TEXT NOT NULL,
+  project_id TEXT NOT NULL REFERENCES project(id) ON DELETE CASCADE,
+  PRIMARY KEY (name, project_id)
+);
+
+CREATE TABLE IF NOT EXISTS feature_alias (
+  feature_id TEXT NOT NULL REFERENCES feature(id) ON DELETE CASCADE,
+  alias TEXT NOT NULL,
+  PRIMARY KEY (feature_id, alias)
+);

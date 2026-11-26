@@ -32,7 +32,13 @@ export function resolveInsideProject(rootPath: string, relativePath: string): st
   const root = path.resolve(rootPath);
   const target = path.resolve(root, relativePath);
   const rel = path.relative(root, target);
-  if (rel.startsWith('..') || path.isAbsolute(rel)) return null;
+  if (rel === '..' || rel.startsWith(`..${path.sep}`) || path.isAbsolute(rel)) return null;
+  if (fs.existsSync(target)) {
+    try {
+      const realRel = path.relative(fs.realpathSync(root), fs.realpathSync(target));
+      if (realRel === '..' || realRel.startsWith(`..${path.sep}`) || path.isAbsolute(realRel)) return null;
+    } catch { return null; }
+  }
   return target;
 }
 

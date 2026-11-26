@@ -27,9 +27,9 @@ export class Db {
   private closed = false;
   private txDepth = 0;
 
-  constructor(path: string) {
+  constructor(path: string, options: { readOnly?: boolean; fileMustExist?: boolean } = {}) {
     this.path = path;
-    this.raw = new Database(path);
+    this.raw = new Database(path, options);
     this.raw.exec('PRAGMA foreign_keys = ON;');
     this.raw.exec('PRAGMA busy_timeout = 5000;');
   }

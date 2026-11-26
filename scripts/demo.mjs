@@ -5,6 +5,7 @@ import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
+import { VERSION } from '../dist/src/version.js';
 
 // An executable example using real MCP calls. All data lives in a new temporary
 // directory; neither the user's knowledge base nor Codex settings are touched.
@@ -30,7 +31,7 @@ function show(title, lines) {
 }
 
 async function connect() {
-  const next = new Client({ name: 'cloonex-demo', version: '0.1.0' }, { capabilities: {} });
+  const next = new Client({ name: 'cloonex-demo', version: VERSION }, { capabilities: {} });
   const transport = new StdioClientTransport({
     command: process.execPath,
     args: [entry],

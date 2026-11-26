@@ -36,6 +36,8 @@ export interface ConventionRow {
   category: string;
   content: string;
   source: string;
+  relative_path?: string | null;
+  fingerprint?: string | null;
   status: string;
   created_at: string;
   updated_at: string;
