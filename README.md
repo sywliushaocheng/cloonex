@@ -171,3 +171,7 @@ If you try it, tell us where setup failed, whether a later session recovered use
 ## License
 
 [MIT](LICENSE)
+
+## Directories
+
+[Cloonex on Glama](https://glama.ai/mcp/servers/sywliushaocheng/cloonex) — public MCP server profile and tool information. Directory listings do not imply an independent security audit.

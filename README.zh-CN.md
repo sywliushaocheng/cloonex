@@ -217,3 +217,7 @@ Windows 有本地验证记录；CI 配置覆盖 Windows/Linux 和 Node 20、22�
 ## 许可证
 
 本项目采用 [MIT License](LICENSE)。
+
+## 工具目录
+
+[Glama 上的 Cloonex](https://glama.ai/mcp/servers/sywliushaocheng/cloonex)：公开的 MCP 项目与工具介绍页。目录收录不等于独立安全审计。
