@@ -41,15 +41,14 @@ Cloonex is a structured knowledge store, not automatic conversation capture. You
 
 ## Quick start
 
-Requires **Node.js ≥ 20.11**, npm and Git. Install from this repository; a GitHub release does not imply an npm package has been published.
+Requires **Node.js ≥ 20.11 and npm**. You do **not** need Git, a source checkout or a local TypeScript build. Install the prebuilt release package directly:
 
 ```bash
-git clone https://github.com/sywliushaocheng/cloonex.git
-cd cloonex
-npm ci
-npm install --global .
+npm install --global "https://github.com/sywliushaocheng/cloonex/releases/download/v0.1.0/cloonex-0.1.0.tgz"
 cloonex init
 ```
+
+The package contains precompiled JavaScript from the `v0.1.0` source tag; npm installs its runtime dependencies automatically. Network access to GitHub/npm is required. Use the named `.tgz` asset, not GitHub's source-code ZIP or tar archive. [Release and SHA-256 checksum](https://github.com/sywliushaocheng/cloonex/releases/tag/v0.1.0). The npm registry package has not been published, so use the full URL above rather than `npm install -g cloonex` or `npx cloonex`.
 
 Then configure your AI application using the [MCP client setup guide](docs/mcp-clients.md). For **Codex**, the bundled helpers are:
 
@@ -62,9 +61,11 @@ cloonex install-skill
 2. Reload the client as needed so it discovers the MCP server and skill, and review/trust the server in your client.
 3. Open a project and ask: **“Use the Cloonex workflow for this task. Read the project context first, preserve the agreed scope and record only facts you verify.”**
 
-`--direct` uses your installed Node and CLI paths. Regenerate the configuration after moving the installation or switching machines. If `cloonex` is not on your PATH, run `node dist/src/cli.js <command>` from the checkout instead.
+`--direct` uses your installed Node and CLI paths. Regenerate the configuration after moving the installation or switching machines. If `cloonex` is not found, make sure npm's global executables directory is on your PATH and reopen the terminal. From a source checkout, you can also run `node dist/src/cli.js <command>`.
 
 SQLite runs through WebAssembly, so no local C/C++ toolchain is needed. The default data directory is `~/.cloonex`; use `cloonex init --data-dir <directory>` to choose another. Program updates and personal data are separate.
+
+To reinstall this version, run the same `npm install --global` command. To upgrade later, use the package URL from the target release, regenerate the client configuration if paths change, and reinstall the Codex skill if you use it. Do not delete your data directory to upgrade the program.
 
 ## Supported connection and client workflow
 
@@ -124,12 +125,18 @@ See the [validation notes (中文)](docs/验收状态.md) and [distribution guid
 
 ## Development and feedback
 
+Git is needed only if you want to clone the repository to inspect the source, run the demo or contribute:
+
 ```bash
+git clone https://github.com/sywliushaocheng/cloonex.git
+cd cloonex
 npm ci
 npm run verify          # Typecheck, build and automated tests
 npm run demo            # Real MCP workflow in an isolated temporary project
 npm pack --dry-run      # Inspect distributable files
 ```
+
+For CLI access from this checkout, run `npm install --global .` or use `node dist/src/cli.js <command>` after the build.
 
 [Report a bug](https://github.com/sywliushaocheng/cloonex/issues/new/choose), suggest a use case or send a focused pull request. English and Chinese are welcome. [Contributing guide](CONTRIBUTING.md).
 

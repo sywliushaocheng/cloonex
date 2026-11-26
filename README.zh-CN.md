@@ -37,23 +37,21 @@ npm run demo
 
 ## 快速开始
 
-需要 Node.js ≥ 20.11 和 Git。首次使用请从本仓库安装；GitHub 开源与 npm 发布是独立步骤。
+只需 **Node.js ≥ 20.11 和 npm**。**无需 Git、无需克隆本项目、无需本机编译**，直接安装已编译的 Release 软件包：
 
 ```bash
-# 1. 获取源码并安装（prepare 脚本会自动编译）
-git clone https://github.com/sywliushaocheng/cloonex.git
-cd cloonex
-npm ci
-npm install --global .
+# 1. 直接安装工具
+npm install --global "https://github.com/sywliushaocheng/cloonex/releases/download/v0.1.0/cloonex-0.1.0.tgz"
 
 # 2. 初始化个人数据目录（默认 ~/.cloonex）
 cloonex init
 ```
 
+安装包包含从 `v0.1.0` 标签构建的 JavaScript，npm 自动安装运行依赖，需要能访问 GitHub/npm。请使用名为 `cloonex-0.1.0.tgz` 的资产，不是 GitHub 自动生成的源码 ZIP/TAR；[Release 页面](https://github.com/sywliushaocheng/cloonex/releases/tag/v0.1.0)附有 SHA-256 校验文件。目前尚未发布 npm 注册表软件包，请使用完整安装包 URL，不要直接执行 `npm install -g cloonex` 或 `npx cloonex`。
+
 接下来按[客户端配置指南](docs/mcp-clients.md#中文说明)配置所用 AI 软件。**Codex 用户**可继续执行：
 
 ```bash
-
 # 3. 输出本地安装的 Codex 接入配置，按提示加入 config.toml
 cloonex mcp-config --direct
 
@@ -62,6 +60,8 @@ cloonex install-skill
 ```
 
 SQLite 使用纯 WASM 版本，**不需要本地 C/C++ 编译工具链**。如需指定数据目录，可执行 `cloonex init --data-dir <目录>`。
+
+找不到 `cloonex` 命令时，请检查 npm 全局可执行文件目录是否加入 PATH，并重新打开终端。重装可再次执行上述安装命令；升级时使用目标 Release 提供的安装包 URL，路径变化后重新生成客户端配置，使用 Codex 技能时重新执行 `install-skill`，无需删除个人数据目录。
 
 配置写入 Codex 后，需要在 Codex 中审阅并信任该 MCP 服务。之后在项目里说“开始一个新功能任务”即可走完整流程。
 
@@ -150,12 +150,18 @@ cloonex install-skill          # 安装开发流程技能
 
 ## 开发
 
+只有需要查看源码、运行演示或参与开发时才需要克隆：
+
 ```bash
+git clone https://github.com/sywliushaocheng/cloonex.git
+cd cloonex
 npm install         # prepare 脚本会自动编译
 npm run typecheck   # 类型检查
 npm test            # 构建并运行测试
 npm run build       # 编译到 dist/
 ```
+
+从源码使用 CLI 可执行 `npm install --global .`，也可在构建后执行 `node dist/src/cli.js <命令>`。
 
 测试覆盖：
 

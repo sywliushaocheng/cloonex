@@ -6,7 +6,15 @@ Cloonex uses the standard MCP SDK and local stdio transport. It does not restric
 
 ## Connection settings
 
-Install Cloonex and run `cloonex init` first. Use the following values in your client's local MCP server configuration:
+Install the prebuilt package directly (Node.js ≥ 20.11 and npm required; no Git or source clone):
+
+```bash
+npm install --global "https://github.com/sywliushaocheng/cloonex/releases/download/v0.1.0/cloonex-0.1.0.tgz"
+cloonex init
+cloonex mcp-config --direct
+```
+
+npm installs the precompiled tool and its runtime dependencies. `mcp-config --direct` prints Codex TOML; reuse its executable, argument and environment values in the format your client expects. Use the following values in your client's local MCP server configuration:
 
 | Field | Value |
 |---|---|
@@ -62,7 +70,15 @@ The same data directory makes existing records available to clients on the same 
 
 Cloonex 是标准 **MCP stdio 服务**，服务端没有 Codex 限制。支持启动本地进程并调用 MCP 工具的 AI 软件可以配置接入；仅支持远程 MCP URL 的客户端暂时无法直接连接，因为当前没有 HTTP/SSE 服务。
 
-安装后先执行 `cloonex init`。启动参数为：
+无需 Git 或克隆，准备 Node.js ≥ 20.11 和 npm 后直接安装已编译软件包：
+
+```bash
+npm install --global "https://github.com/sywliushaocheng/cloonex/releases/download/v0.1.0/cloonex-0.1.0.tgz"
+cloonex init
+cloonex mcp-config --direct
+```
+
+npm 安装已编译程序及其运行依赖，无需本机 TypeScript 编译；最后一个命令输出 Codex TOML，其他客户端复用其中的路径和参数并转换成各自格式。启动参数为：
 
 - 程序：Node.js 的绝对路径。
 - 参数：Cloonex 的 `dist/src/cli.js` 绝对路径，以及 `mcp`。
