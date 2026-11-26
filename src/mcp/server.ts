@@ -22,6 +22,7 @@ import {
   getTask,
   listCheckpoints,
   listTasks,
+  linkTaskFeature,
   saveCheckpoint,
   updateTask,
 } from '../domain/task.js';
@@ -265,6 +266,7 @@ server.registerTool(
         consequence: args.consequence,
         evidence: args.evidence,
       });
+      if (featureId) linkTaskFeature(db, task.id, featureId);
       return json({
         decision,
         warnings: args.reasonSource !== 'unknown' && !args.evidence?.length
@@ -310,13 +312,14 @@ server.registerTool(
         }));
 
         if (args.feature) {
-          upsertFeature(db, {
+          const feature = upsertFeature(db, {
             projectId: task.projectId,
             slug: args.feature.slug,
             title: args.feature.title,
             purpose: args.feature.purpose,
             boundary: args.feature.boundary,
           });
+          linkTaskFeature(db, task.id, feature.id);
         }
 
         const result = finalizeTask(db, {
@@ -444,6 +447,7 @@ server.registerTool('update_feature', {
       const updated = upsertFeature(db, { projectId: task.projectId, slug: feature.slug, title: args.title ?? feature.title,
         purpose: args.purpose, boundary: args.boundary });
       if (args.aliases) setFeatureAliases(db, feature.id, args.aliases);
+      linkTaskFeature(db, task.id, feature.id);
       return json({ feature: getFeature(db, updated.id) });
     });
   } catch (error) { return failure(error); }

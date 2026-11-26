@@ -236,7 +236,7 @@ describe('Cloonex MCP server', () => {
     assert.ok(info.counts.decisions >= 1);
   });
   test('new MCP lifecycle preserves names, checks freshness, refreshes reviews and replaces historical records', async () => {
-    const begun = await call('begin_task', { projectRoot, title: 'Versioned feature', taskType: 'feature', featureSlug: 'versioned-export', stack: ['vue3','typescript'] });
+    const begun = await call('begin_task', { projectRoot, title: 'Versioned feature', taskType: 'feature', stack: ['vue3','typescript'] });
     const taskId = begun.task.id;
     const named = await call('update_feature', { taskId, featureSlug: 'versioned-export', title: '跨会话导出', aliases: ['下载订单'] });
     assert.equal(named.feature.title, '跨会话导出');
@@ -266,6 +266,9 @@ describe('Cloonex MCP server', () => {
     assert.ok((await call('supersede_statement', { taskId: bug.task.id, statementId: replacement.statement.id, content: 'blocked', note: 'must reject' })).error);
     assert.ok((await call('finalize_task', { taskId: bug.task.id, feature: { slug: 'forbidden', title: 'forbidden' } })).error);
     assert.ok((await call('project_health', { projectRoot, checkFiles: true })).projects[0].pathExists);
+    const metadataOnly = await call('begin_task', { projectRoot, title: 'Feature metadata', taskType: 'feature' });
+    const metadataFinal = await call('finalize_task', { taskId: metadataOnly.task.id, feature: { slug: 'metadata-only', title: '元信息' }, knowledgeMode: 'summary' });
+    assert.ok(metadataFinal.task.featureId);
   });
 
 
