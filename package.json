@@ -4,6 +4,14 @@
   "description": "在借助 AI 开发的同时，本地保存开发意图、项目约定、关键决定与功能档案，使项目知识独立于具体模型。",
   "type": "module",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sywliushaocheng/cloonex.git"
+  },
+  "homepage": "https://github.com/sywliushaocheng/cloonex#readme",
+  "bugs": {
+    "url": "https://github.com/sywliushaocheng/cloonex/issues"
+  },
   "bin": {
     "cloonex": "dist/src/cli.js"
   },
